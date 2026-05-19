@@ -1,0 +1,115 @@
+# Query Definitions Registry
+# Predefined SOQL queries for common DataPack types
+# Use shorthand in job files: queries: [PriceList, Promotion]
+
+PriceList:
+  VlocityDataPackType: PriceList
+  query: |
+    SELECT Id, Name, vlocity_cmt__Code__c, vlocity_cmt__IsActive__c,
+           vlocity_cmt__CurrencyCode__c, GT_CountryCode__c, GT_OrganizationCode__c
+    FROM vlocity_cmt__PriceList__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active Price Lists"
+
+Promotion:
+  VlocityDataPackType: Promotion
+  query: |
+    SELECT Id, Name, vlocity_cmt__Code__c, vlocity_cmt__IsActive__c,
+           vlocity_cmt__GlobalKey__c, vlocity_cmt__Description__c
+    FROM vlocity_cmt__Promotion__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active Promotions"
+
+RateCode:
+  VlocityDataPackType: RateCode
+  query: |
+    SELECT Id, Name, GT_OrgCode__c, GT_VATCode__c, GT_VATRate__c,
+           GT_StartDate__c, GT_EndDate__c
+    FROM GT_RateCode__c
+    WHERE GT_StartDate__c <= TODAY 
+      AND (GT_EndDate__c = null OR GT_EndDate__c >= TODAY)
+  description: "Export all active Rate Codes"
+
+RateTable:
+  VlocityDataPackType: RateTable
+  query: |
+    SELECT Id, Name, GT_OrgCode__c, GT_RateCode__c, Product__c,
+           GT_StartDate__c, GT_EndDate__c, GT_ProductName_Text__c
+    FROM GT_RateTable__c
+    WHERE GT_StartDate__c <= TODAY 
+      AND (GT_EndDate__c = null OR GT_EndDate__c >= TODAY)
+  description: "Export all active Rate Tables"
+
+Product2:
+  VlocityDataPackType: Product2
+  query: |
+    SELECT Id, Name, ProductCode, IsActive, Family, Description,
+           vlocity_cmt__GlobalKey__c
+    FROM Product2
+    WHERE IsActive = true AND GT_IsTechnicalProduct__c = false
+  description: "Export all active Products"
+
+PricingElement:
+  VlocityDataPackType: PricingElement
+  query: |
+    SELECT Id, Name, vlocity_cmt__Amount__c, vlocity_cmt__PricingVariableId__c,
+           vlocity_cmt__PriceListId__c, vlocity_cmt__IsActive__c
+    FROM vlocity_cmt__PricingElement__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active Pricing Elements"
+
+PricingVariable:
+  VlocityDataPackType: PricingVariable
+  query: |
+    SELECT Id, Name, vlocity_cmt__Code__c, vlocity_cmt__IsActive__c,
+           vlocity_cmt__DataType__c
+    FROM vlocity_cmt__PricingVariable__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active Pricing Variables"
+
+OmniScript:
+  VlocityDataPackType: OmniScript
+  query: |
+    SELECT Id, vlocity_cmt__Type__c, vlocity_cmt__SubType__c, vlocity_cmt__Language__c,
+           vlocity_cmt__IsActive__c, vlocity_cmt__IsProcedure__c
+    FROM vlocity_cmt__OmniScript__c
+    WHERE vlocity_cmt__IsActive__c = true 
+      AND vlocity_cmt__IsProcedure__c = false
+  description: "Export all active OmniScripts (non-procedure)"
+
+IntegrationProcedure:
+  VlocityDataPackType: IntegrationProcedure
+  query: |
+    SELECT Id, vlocity_cmt__Type__c, vlocity_cmt__SubType__c, vlocity_cmt__Language__c,
+           vlocity_cmt__IsActive__c, vlocity_cmt__IsProcedure__c
+    FROM vlocity_cmt__OmniScript__c
+    WHERE vlocity_cmt__IsActive__c = true 
+      AND vlocity_cmt__IsProcedure__c = true
+  description: "Export all active Integration Procedures"
+
+DataRaptor:
+  VlocityDataPackType: DataRaptor
+  query: |
+    SELECT Id, Name, vlocity_cmt__Type__c, vlocity_cmt__IsActive__c
+    FROM vlocity_cmt__DRBundle__c
+    WHERE vlocity_cmt__Type__c != 'Migration'
+  description: "Export all DataRaptors (excluding Migration type)"
+
+FlexCard:
+  VlocityDataPackType: FlexCard
+  query: |
+    SELECT Id, Name, vlocity_cmt__Author__c, vlocity_cmt__Version__c,
+           vlocity_cmt__IsActive__c
+    FROM vlocity_cmt__VlocityCard__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active FlexCards"
+
+VlocityUITemplate:
+  VlocityDataPackType: VlocityUITemplate
+  query: |
+    SELECT Id, Name, vlocity_cmt__Author__c, vlocity_cmt__Version__c,
+           vlocity_cmt__IsActive__c
+    FROM vlocity_cmt__VlocityUITemplate__c
+    WHERE vlocity_cmt__IsActive__c = true
+  description: "Export all active Vlocity UI Templates"
+

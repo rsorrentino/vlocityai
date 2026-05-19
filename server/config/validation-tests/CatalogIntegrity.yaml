@@ -1,0 +1,98 @@
+# Validate catalog structure integrity.
+# Checks for missing references, orphaned relationships, and
+# duplicate catalog/product assignments that would cause deploy failures.
+
+CatalogIntegrity:
+  tests:
+    - name: DuplicateCatalogProductRelationships
+      description: Same product appearing more than once in the same catalog
+      query: |
+        SELECT Id, vlocity_cmt__CatalogId__c, vlocity_cmt__Product2Id__c
+        FROM vlocity_cmt__CatalogProductRelationship__c
+        WHERE vlocity_cmt__CatalogId__c != null
+        AND vlocity_cmt__Product2Id__c != null
+      validation:
+        check_duplicates_composite:
+          fields:
+            - vlocity_cmt__CatalogId__c
+            - vlocity_cmt__Product2Id__c
+      severity: error
+
+    - name: OrphanedCatalogProductRelationships
+      description: Catalog-Product relationships with a null catalog or product reference
+      query: |
+        SELECT Id, Name, vlocity_cmt__CatalogId__c, vlocity_cmt__Product2Id__c
+        FROM vlocity_cmt__CatalogProductRelationship__c
+        WHERE vlocity_cmt__CatalogId__c = null
+        OR vlocity_cmt__Product2Id__c = null
+      validation:
+        expect_empty:
+          check_name: OrphanedCatalogProductRelationships
+          success_message: All Catalog-Product relationships have valid catalog and product references
+      severity: error
+
+    - name: DuplicateProductChildItems
+      description: Same child product appearing more than once under the same parent product
+      query: |
+        SELECT Id, vlocity_cmt__ParentProductId__c, vlocity_cmt__ChildProductId__c
+        FROM vlocity_cmt__ProductChildItem__c
+        WHERE vlocity_cmt__ParentProductId__c != null
+        AND vlocity_cmt__ChildProductId__c != null
+      validation:
+        check_duplicates_composite:
+          fields:
+            - vlocity_cmt__ParentProductId__c
+            - vlocity_cmt__ChildProductId__c
+      severity: error
+
+    - name: OrphanedProductChildItems
+      description: Product Child Items with a null parent or child product reference
+      query: |
+        SELECT Id, Name, vlocity_cmt__ParentProductId__c, vlocity_cmt__ChildProductId__c
+        FROM vlocity_cmt__ProductChildItem__c
+        WHERE vlocity_cmt__ParentProductId__c = null
+        OR vlocity_cmt__ChildProductId__c = null
+      validation:
+        expect_empty:
+          check_name: OrphanedProductChildItems
+          success_message: All Product Child Items have valid parent and child product references
+      severity: error
+
+    - name: OrphanedAttributeAssignments
+      description: Attribute Assignments missing product (ObjectId) or attribute reference
+      query: |
+        SELECT Id, Name, vlocity_cmt__ObjectId__c, vlocity_cmt__AttributeId__c
+        FROM vlocity_cmt__AttributeAssignment__c
+        WHERE vlocity_cmt__ObjectId__c = null
+        OR vlocity_cmt__AttributeId__c = null
+      validation:
+        expect_empty:
+          check_name: OrphanedAttributeAssignments
+          success_message: All Attribute Assignments have valid product and attribute references
+      severity: warning
+
+    - name: DuplicateAttributeAssignments
+      description: Same attribute assigned more than once to the same product/object
+      query: |
+        SELECT Id, vlocity_cmt__ObjectId__c, vlocity_cmt__AttributeId__c
+        FROM vlocity_cmt__AttributeAssignment__c
+        WHERE vlocity_cmt__ObjectId__c != null
+        AND vlocity_cmt__AttributeId__c != null
+      validation:
+        check_duplicates_composite:
+          fields:
+            - vlocity_cmt__ObjectId__c
+            - vlocity_cmt__AttributeId__c
+      severity: error
+
+    - name: OrphanedPicklistValues
+      description: Picklist Values not linked to any Picklist
+      query: |
+        SELECT Id, Name, vlocity_cmt__PicklistId__c
+        FROM vlocity_cmt__PicklistValue__c
+        WHERE vlocity_cmt__PicklistId__c = null
+      validation:
+        expect_empty:
+          check_name: OrphanedPicklistValues
+          success_message: All Picklist Values are linked to a Picklist
+      severity: warning

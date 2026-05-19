@@ -1,0 +1,44 @@
+RateTable:
+  tests:
+    - name: RequiredFields
+      description: Check that all required fields are populated
+      query: |
+        SELECT Id, Name, GT_OrgCode__c, GT_RateCode__c, Product__c,
+               GT_StartDate__c, GT_EndDate__c
+        FROM GT_RateTable__c
+        WHERE Id != null
+      validation:
+        required_fields:
+          - GT_OrgCode__c
+          - GT_RateCode__c
+          - Product__c
+      severity: error
+
+    - name: OrphanedTables
+      description: Check for orphaned rate tables (missing product or rate code)
+      query: |
+        SELECT Id, Name, GT_RateCode__c, Product__c
+        FROM GT_RateTable__c
+        WHERE GT_RateCode__c = null OR Product__c = null
+      validation:
+        relationship_check:
+          fields:
+            - field: GT_RateCode__c
+              parent_object: GT_RateCode__c
+            - field: Product__c
+              parent_object: Product2
+      severity: error
+
+    - name: DateRanges
+      description: Validate effective date ranges
+      query: |
+        SELECT Id, Name, GT_StartDate__c, GT_EndDate__c
+        FROM GT_RateTable__c
+        WHERE GT_StartDate__c != null AND GT_EndDate__c != null
+      validation:
+        date_range:
+          start_field: GT_StartDate__c
+          end_field: GT_EndDate__c
+          rule: end_after_start
+      severity: error
+

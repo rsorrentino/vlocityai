@@ -1,0 +1,60 @@
+defaultMaxParallel: 10
+exportPacksMaxSize: 10000
+activate: true
+autoUpdateSettings: true
+autoRetryErrors: true
+continueAfterError: true
+processMultiple: true
+maxDepth: 10
+maximumDeployCount: 1000
+compileOnBuild: true
+useAllRelationships: true
+addSourceKeys: false
+useVlocityTriggers: true
+disableVlocityTriggers: false
+supportForceDeploy: false
+supportHeadersOnly: true
+wait: 33
+ignoreLWCActivationOS: false
+ignoreLWCActivationCards: false
+keepOSActiveWhenLWCDeploymentFails: false
+gitCheck: false
+gitCheckKey: null
+ignoreAllErrors: true
+delete: true
+expansionPath: .
+manifestOnly: false
+name: Full Export
+projectPath: ./export/uat-delta
+removeInvalidMatchingKeyFields: true
+OverrideSettings:
+  SObjects:
+    ExportGroupSize: 10
+    vlocity_namespace__PricingElement__c:
+      FolderName:
+      - vlocity_namespace__GlobalKey__c
+queries:
+  - VlocityDataPackType: EntityFilter
+    query: "SELECT Id FROM vlocity_cmt__EntityFilter__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__PricingElement__c"
+  - VlocityDataPackType: AttributeCategory
+    query: "SELECT Id FROM vlocity_cmt__AttributeCategory__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__Attribute__c"
+  - VlocityDataPackType: VlocityPicklist
+    query: "SELECT Id FROM vlocity_cmt__Picklist__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__PicklistValue__c"
+  - VlocityDataPackType: Product2
+    query: "SELECT Id FROM Product2"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__ProductChildItem__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__PriceListEntry__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__CatalogProductRelationship__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM vlocity_cmt__AttributeAssignment__c"
+  - VlocityDataPackType: SObject
+    query: "SELECT Id FROM PricebookEntry"

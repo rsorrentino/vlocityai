@@ -1,0 +1,28 @@
+{
+  "productFile": {
+    "product2": {
+      "SKU":          "ProductCode",
+      "Product Name": "Name",
+      "Type":         "vlocity_cmt__Type__c",
+      "Description":  "Description",
+      "Is Active":    "IsActive",
+      "Country Code": "GT_CountryCode__c",
+      "Catalog":      "_catalog"
+    },
+    "knownAttributeColumns": ["Color", "Ear Side", "Supplier", "Repair Type", "Product Classification"],
+    "requiredColumns": ["SKU", "Product Name", "Type", "Country Code"],
+    "upsertKey": "ProductCode"
+  },
+  "priceFile": {
+    "columns": {
+      "ItemNumberSKU":      "_productLookup",
+      "PriceList":          "_priceListLookup",
+      "PricingVariable":    "_pricingVariableLookup",
+      "Amount":             "vlocity_cmt__Amount__c",
+      "EffectiveStartDate": "vlocity_cmt__EffectiveFromDate__c"
+    },
+    "requiredColumns": ["ItemNumberSKU", "PriceList", "PricingVariable", "Amount"],
+    "globalKeyPattern": "{ItemNumberSKU}_{PriceList}_{PricingVariable}",
+    "upsertExternalIdField": "vlocity_cmt__GlobalKey__c"
+  }
+}

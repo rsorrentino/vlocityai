@@ -1,0 +1,130 @@
+# Validate Vlocity product layout hierarchy integrity.
+# The full hierarchy is:
+#   ObjectClass → ObjectLayout → UISection → UIFacet
+# Broken references at any level prevent the product configurator from rendering.
+
+ObjectLayouts:
+  tests:
+    - name: ObjectLayoutWithoutObjectClass
+      description: ObjectLayouts not linked to any ObjectClass (unreachable in configurator)
+      query: |
+        SELECT Id, Name, vlocity_cmt__ObjectClassId__c
+        FROM vlocity_cmt__ObjectLayout__c
+        WHERE vlocity_cmt__ObjectClassId__c = null
+      validation:
+        expect_empty:
+          check_name: ObjectLayoutWithoutObjectClass
+          success_message: All ObjectLayouts are linked to an ObjectClass
+      severity: error
+
+    - name: ObjectLayoutMissingGlobalKey
+      description: ObjectLayouts without a Global Key cannot be reliably exported/deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__ObjectLayout__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: ObjectLayoutMissingGlobalKey
+          success_message: All ObjectLayouts have a Global Key
+      severity: error
+
+    - name: DuplicateObjectLayoutsPerObjectClass
+      description: Multiple ObjectLayouts with the same ObjectClass (only one layout is used at runtime)
+      query: |
+        SELECT Id, Name, vlocity_cmt__ObjectClassId__c
+        FROM vlocity_cmt__ObjectLayout__c
+        WHERE vlocity_cmt__ObjectClassId__c != null
+        AND vlocity_cmt__IsActive__c = true
+      validation:
+        check_duplicates:
+          field: vlocity_cmt__ObjectClassId__c
+      severity: warning
+
+    - name: InactiveUISection
+      description: UISections that are inactive — will not render in the configurator at runtime
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__UISection__c
+        WHERE vlocity_cmt__IsActive__c = false
+      validation:
+        expect_empty:
+          check_name: InactiveUISection
+          success_message: All UISections are active
+      severity: warning
+
+    - name: UISectionMissingGlobalKey
+      description: UISections without a Global Key cannot be reliably exported/deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__UISection__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: UISectionMissingGlobalKey
+          success_message: All UISections have a Global Key
+      severity: warning
+
+    - name: DuplicateUISection
+      description: Multiple UISections with the same Name in the org (potential confusion)
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__UISection__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: warning
+
+    - name: InactiveUIFacet
+      description: UIFacets that are inactive — will not render in the configurator at runtime
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__UIFacet__c
+        WHERE vlocity_cmt__IsActive__c = false
+      validation:
+        expect_empty:
+          check_name: InactiveUIFacet
+          success_message: All UIFacets are active
+      severity: warning
+
+    - name: UIFacetMissingGlobalKey
+      description: UIFacets without a Global Key cannot be reliably exported/deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__UIFacet__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: UIFacetMissingGlobalKey
+          success_message: All UIFacets have a Global Key
+      severity: warning
+
+    - name: ObjectClassMissingGlobalKey
+      description: ObjectClasses without a Global Key cannot be reliably exported/deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__ObjectClass__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: ObjectClassMissingGlobalKey
+          success_message: All ObjectClasses have a Global Key
+      severity: error
+
+    - name: ObjectClassWithoutLayout
+      description: Active ObjectClasses that have no ObjectLayout defined (configurator will not render)
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__ObjectClass__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND Id NOT IN (
+          SELECT vlocity_cmt__ObjectClassId__c
+          FROM vlocity_cmt__ObjectLayout__c
+          WHERE vlocity_cmt__ObjectClassId__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: ObjectClassWithoutLayout
+          success_message: All active ObjectClasses have at least one ObjectLayout
+      severity: warning

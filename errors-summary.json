@@ -1,0 +1,11 @@
+{
+  "totalErrors": 421,
+  "objectTypes": {
+    "CalculationMatrix": 2,
+    "InterfaceImplementation": 1,
+    "PricingPlan": 1,
+    "Product2": 416,
+    "Catalog": 1
+  },
+  "exportFile": "EPC-export-errors.uat.yaml"
+}

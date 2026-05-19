@@ -1,0 +1,29 @@
+Promotion:
+  tests:
+    - name: RequiredFields
+      description: Check that all required fields are populated
+      query: |
+        SELECT Id, Name, vlocity_cmt__Code__c, vlocity_cmt__Description__c,
+               vlocity_cmt__IsActive__c, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__Promotion__c
+        WHERE vlocity_cmt__IsActive__c = true
+      validation:
+        required_fields:
+          - vlocity_cmt__Code__c
+          - vlocity_cmt__Description__c
+      severity: error
+
+    - name: OrphanedPromotions
+      description: Check for promotions missing price list references
+      query: |
+        SELECT Id, Name, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__Promotion__c
+        WHERE vlocity_cmt__PriceListId__c NOT IN (
+          SELECT Id FROM vlocity_cmt__PriceList__c
+        )
+      validation:
+        relationship_check:
+          field: vlocity_cmt__PriceListId__c
+          parent_object: vlocity_cmt__PriceList__c
+      severity: warning
+

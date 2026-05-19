@@ -1,0 +1,107 @@
+{
+  "countries": [
+    {
+      "code": "BE",
+      "name": "Belgium",
+      "currency": "EUR",
+      "locale": "nl-BE",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": true,
+      "region": "Europe",
+      "expectedPrimaryPriceLists": 1,
+      "ampCode": "041",
+      "isoCode": "BE"
+    },
+    {
+      "code": "UK",
+      "name": "United Kingdom",
+      "currency": "GBP",
+      "locale": "en-GB",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": true,
+      "region": "Europe",
+      "expectedPrimaryPriceLists": 1,
+      "ampCode": "042",
+      "isoCode": "UK"
+    },
+    {
+      "code": "ES",
+      "name": "Spain",
+      "currency": "EUR",
+      "locale": "es-ES",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": true,
+      "region": "Europe",
+      "expectedPrimaryPriceLists": 6,
+      "ampCode": "002",
+      "isoCode": "ES"
+    },
+    {
+      "code": "AU",
+      "name": "Australia",
+      "currency": "AUD",
+      "locale": "en-AU",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": true,
+      "region": "Asia-Pacific",
+      "expectedPrimaryPriceLists": 8,
+      "ampCode": "060",
+      "isoCode": "AU"
+    },
+    {
+      "code": "US",
+      "name": "United States",
+      "currency": "USD",
+      "locale": "en-US",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Americas"
+    },
+    {
+      "code": "FR",
+      "name": "France",
+      "currency": "EUR",
+      "locale": "fr-FR",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Europe"
+    },
+    {
+      "code": "DE",
+      "name": "Germany",
+      "currency": "EUR",
+      "locale": "de-DE",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Europe"
+    },
+    {
+      "code": "IT",
+      "name": "Italy",
+      "currency": "EUR",
+      "locale": "it-IT",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Europe"
+    },
+    {
+      "code": "NL",
+      "name": "Netherlands",
+      "currency": "EUR",
+      "locale": "nl-NL",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Europe"
+    },
+    {
+      "code": "CA",
+      "name": "Canada",
+      "currency": "CAD",
+      "locale": "en-CA",
+      "vlocityNamespace": "vlocity_cmt",
+      "active": false,
+      "region": "Americas"
+    }
+  ]
+}
+

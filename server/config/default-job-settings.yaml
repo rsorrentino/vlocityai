@@ -1,0 +1,52 @@
+# Default Job Settings for Vlocity DataPack Operations
+# Based on official Vlocity Build Tool defaults
+# These settings are automatically applied if not specified in job files
+
+# Basic Settings
+defaultMaxParallel: 10        # Number of parallel processes for export
+exportPacksMaxSize: 5000      # Split DataPack export once it reaches this threshold (records)
+
+# Activation
+activate: true                # Will activate everything after it is imported/deployed
+autoUpdateSettings: true      # Automatically run packUpdateSettings before deploy
+autoRetryErrors: false        # Will automatically retry after a deploy
+
+# Processing
+continueAfterError: false     # Don't end vlocity job on error
+processMultiple: true         # When false, each Export/Import will run individually
+maxDepth: 10                  # The max distance of Parent or Children Relationships
+maximumDeployCount: 1000      # Maximum number of items in a single Deploy
+
+# DataPack Settings
+compileOnBuild: true          # Compiled files will be generated as part of Export
+useAllRelationships: true     # Store _AllRelations.json file
+addSourceKeys: false          # Generate Global/Unique Keys for Records missing this data
+
+# Vlocity Triggers
+useVlocityTriggers: true      # Turn on Vlocity's AllTriggers Custom Setting during Deploy
+disableVlocityTriggers: false # Turn off Vlocity's AllTriggers Custom Setting during Deploy
+
+# Deployment
+supportForceDeploy: false     # Attempt to deploy DataPacks which have not had all parents successfully deployed
+supportHeadersOnly: true      # Attempt to deploy a subset of data for certain DataPack types
+wait: 33                      # Wait time in minutes for SFDX/SF CLI deployment commands
+
+# LWC Compilation
+ignoreLWCActivationOS: false  # Do not compile and deploy LWC OmniScripts
+ignoreLWCActivationCards: false # Do not compile and deploy LWC Cards
+keepOSActiveWhenLWCDeploymentFails: false # Keep OmniScript active if LWC deployment fails
+
+# Git Integration
+gitCheck: false               # Enable git hash checking for changes
+gitCheckKey: null             # Key for git check when multiple folders exist
+
+# Error Handling
+ignoreAllErrors: false       # Ignore Errors during Job (NOT RECOMMENDED)
+delete: true                 # Delete the VlocityDataPack__c file on finish
+
+# Expansion
+expansionPath: .              # Secondary path after projectPath to expand the data
+
+# Manifest
+manifestOnly: false           # If true, an Export job will only save items specifically listed in the manifest
+

@@ -1,0 +1,102 @@
+# Validate pricing tool data quality.
+# Covers duplicate pricing elements, pricebook entries, duplicate products,
+# products with missing/zero prices, and HA product price requirements.
+
+PricingToolIntegrity:
+  tests:
+    - name: DuplicatePricingElementsPerProduct
+      description: Same pricing variable applied more than once to the same product on the same price list
+      query: |
+        SELECT Id, Name, vlocity_cmt__ProductId__c, vlocity_cmt__PriceListId__c, vlocity_cmt__PricingVariableId__c
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__ProductId__c != null
+        AND vlocity_cmt__PricingVariableId__c != null
+        AND vlocity_cmt__ProductId__r.GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        check_duplicates_composite:
+          fields:
+            - vlocity_cmt__ProductId__c
+            - vlocity_cmt__PriceListId__c
+            - vlocity_cmt__PricingVariableId__c
+            - Name
+      severity: error
+
+    - name: DuplicatePricebookEntries
+      description: Same product appearing more than once in the same pricebook with the same currency
+      query: |
+        SELECT Id, Product2Id, Pricebook2Id, CurrencyIsoCode
+        FROM PricebookEntry
+        WHERE IsActive = true
+        AND Product2Id != null
+        AND Pricebook2Id != null
+      validation:
+        check_duplicates_composite:
+          fields:
+            - Product2Id
+            - Pricebook2Id
+            - CurrencyIsoCode
+      severity: error
+
+    - name: DuplicateProductsByName
+      description: Multiple active products sharing the same Name
+      query: |
+        SELECT Id, Name, ProductCode
+        FROM Product2
+        WHERE IsActive = true
+        AND Name != null
+        AND GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        check_duplicates:
+          field: Name
+      severity: error
+
+    - name: DuplicateProductsBySKU
+      description: Multiple active products sharing the same ProductCode (SKU)
+      query: |
+        SELECT Id, Name, ProductCode
+        FROM Product2
+        WHERE IsActive = true
+        AND ProductCode != null
+        AND GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        check_duplicates:
+          field: ProductCode
+      severity: error
+
+    - name: ActiveProductsWithoutPrice
+      description: Active products with no Price List Entry — required for the pricing engine to return a price
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND Id NOT IN (
+          SELECT vlocity_cmt__ProductId__c
+          FROM vlocity_cmt__PriceListEntry__c
+          WHERE vlocity_cmt__ProductId__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: ActiveProductsWithoutPrice
+          success_message: All active products have at least one Price List Entry
+      severity: warning
+
+    - name: HAProductsWithoutPrice
+      description: Products of type HA with no Price List Entry — HA products must always have a configured price
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND vlocity_cmt__Type__c = 'HA'
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND Id NOT IN (
+          SELECT vlocity_cmt__ProductId__c
+          FROM vlocity_cmt__PriceListEntry__c
+          WHERE vlocity_cmt__ProductId__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: HAProductsWithoutPrice
+          success_message: All HA products have at least one Price List Entry
+      severity: warning

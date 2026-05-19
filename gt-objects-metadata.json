@@ -1,0 +1,341 @@
+{
+  "GT_RateCode__c": {
+    "label": "Rate Code Record",
+    "fields": [
+      {
+        "name": "CurrencyIsoCode",
+        "type": "picklist",
+        "label": "Currency ISO Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_EndDate__c",
+        "type": "date",
+        "label": "End Date",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_GlobalKey__c",
+        "type": "string",
+        "label": "Global Key",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_OrgCode__c",
+        "type": "string",
+        "label": "Org Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_StartDate__c",
+        "type": "date",
+        "label": "Start Date",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_VATCode__c",
+        "type": "double",
+        "label": "VAT Code",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_VATDescription__c",
+        "type": "string",
+        "label": "VAT Description",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_VATRate__c",
+        "type": "percent",
+        "label": "VAT Rate",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "OwnerId",
+        "type": "reference",
+        "label": "Owner ID",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "Owner"
+      }
+    ]
+  },
+  "GT_RateTable__c": {
+    "label": "Rate Table Record",
+    "fields": [
+      {
+        "name": "CurrencyIsoCode",
+        "type": "picklist",
+        "label": "Currency ISO Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_EndDate__c",
+        "type": "date",
+        "label": "End Date",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_GlobalKey__c",
+        "type": "string",
+        "label": "Global Key",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_OrgCode__c",
+        "type": "string",
+        "label": "Org Code",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_ProductName_Text__c",
+        "type": "string",
+        "label": "ProductName",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_RateCode__c",
+        "type": "reference",
+        "label": "Rate Code",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "GT_RateCode__r"
+      },
+      {
+        "name": "GT_StartDate__c",
+        "type": "date",
+        "label": "Start Date",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_UniqueKey__c",
+        "type": "string",
+        "label": "GT_UniqueKey",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_VATType__c",
+        "type": "picklist",
+        "label": "VAT Type",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "OwnerId",
+        "type": "reference",
+        "label": "Owner ID",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "Owner"
+      },
+      {
+        "name": "Product__c",
+        "type": "reference",
+        "label": "Product",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "Product__r"
+      }
+    ]
+  },
+  "GT_ProductSKU__c": {
+    "label": "Product SKU Record",
+    "fields": [
+      {
+        "name": "AMP_isNewSc__c",
+        "type": "boolean",
+        "label": "AMP isNewSc",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "CurrencyIsoCode",
+        "type": "picklist",
+        "label": "Currency ISO Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_BestSellerValidFrom__c",
+        "type": "date",
+        "label": "Best Seller Valid From",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_BestSellerValidUntil__c",
+        "type": "date",
+        "label": "Best Seller Valid Until",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_Color__c",
+        "type": "string",
+        "label": "Color",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_GlobalKey__c",
+        "type": "string",
+        "label": "GlobalKey",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_LifeCycle__c",
+        "type": "string",
+        "label": "LifeCycle",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_OrganizationCode__c",
+        "type": "string",
+        "label": "Organization Code",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_ProductName_Text__c",
+        "type": "string",
+        "label": "ProductName",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_ProductSKU__c",
+        "type": "string",
+        "label": "Product SKU",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_ProductUse__c",
+        "type": "string",
+        "label": "Product Use",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_ShopCode__c",
+        "type": "string",
+        "label": "Shop Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "GT_SubstitutionCode__c",
+        "type": "string",
+        "label": "Substitution Code",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "Implants_KIT_Compatibility__c",
+        "type": "textarea",
+        "label": "Implants KIT Compatibility",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": null
+      },
+      {
+        "name": "OwnerId",
+        "type": "reference",
+        "label": "Owner ID",
+        "nillable": false,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "Owner"
+      },
+      {
+        "name": "Product__c",
+        "type": "reference",
+        "label": "Product",
+        "nillable": true,
+        "updateable": true,
+        "createable": true,
+        "relationshipName": "Product__r"
+      }
+    ]
+  }
+}

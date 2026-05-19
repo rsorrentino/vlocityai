@@ -1,0 +1,96 @@
+# Detect duplicate records across key Vlocity objects.
+# Duplicates in Name or Code fields often indicate data quality issues
+# and can cause unpredictable behaviour during export/deploy.
+
+DuplicateRecords:
+  tests:
+    - name: DuplicatePricingElements
+      description: Multiple active Pricing Elements sharing the same Name
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__IsActive__c = true
+      validation:
+        check_duplicates:
+          field: Name
+      severity: error
+
+    - name: DuplicatePriceLists
+      description: Multiple active Price Lists sharing the same Code
+      query: |
+        SELECT Id, Name, vlocity_cmt__Code__c, GT_CountryCode__c
+        FROM vlocity_cmt__PriceList__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__Code__c != null
+        AND GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        check_duplicates:
+          field: vlocity_cmt__Code__c
+      severity: error
+
+    - name: DuplicatePricingVariables
+      description: Multiple active Pricing Variables sharing the same Code
+      query: |
+        SELECT Id, Name, vlocity_cmt__Code__c
+        FROM vlocity_cmt__PricingVariable__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__Code__c != null
+      validation:
+        check_duplicates:
+          field: vlocity_cmt__Code__c
+      severity: error
+
+    - name: DuplicateAttributes
+      description: Multiple Attributes sharing the same Name (causes assignment ambiguity)
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Attribute__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: warning
+
+    - name: DuplicateAttributeCategories
+      description: Multiple Attribute Categories sharing the same Name
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__AttributeCategory__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: error
+
+    - name: DuplicatePicklists
+      description: Multiple Picklists sharing the same Name
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Picklist__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: error
+
+    - name: DuplicateRules
+      description: Multiple Rules sharing the same Name
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Rule__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: warning
+
+    - name: DuplicateCalculationMatrices
+      description: Multiple Calculation Matrices sharing the same Name
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__CalculationMatrix__c
+        WHERE Id != null
+      validation:
+        check_duplicates:
+          field: Name
+      severity: warning

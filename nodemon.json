@@ -1,0 +1,23 @@
+{
+    "watch":  [
+                  "server"
+              ],
+    "ext":  "js,json",
+    "ignore":  [
+                   "server/temp/**",
+                   "server/logs/**",
+                   "node_modules/**"
+               ],
+    "execMap":  {
+                    "js":  "node"
+                },
+    "nodeArgs":  [
+                     "--max-http-header-size=32768"
+                 ],
+    "env":  {
+                "NODE_ENV":  "development"
+            },
+    "verbose":  false,
+    "quiet":  true
+}
+

@@ -1,0 +1,47 @@
+PriceList:
+  tests:
+    - name: RequiredFields
+      description: Check that all required fields are populated
+      query: |
+        SELECT Id, Name, vlocity_cmt__Code__c, vlocity_cmt__CurrencyCode__c,
+               vlocity_cmt__IsActive__c, vlocity_cmt__EffectiveFromDate__c,
+               vlocity_cmt__EffectiveUntilDate__c, GT_CountryCode__c
+        FROM vlocity_cmt__PriceList__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        required_fields:
+          - vlocity_cmt__Code__c
+          - vlocity_cmt__CurrencyCode__c
+        check_duplicates:
+          field: vlocity_cmt__Code__c
+      severity: error
+      
+    - name: DateRanges
+      description: Validate effective date ranges
+      query: |
+        SELECT Id, Name, vlocity_cmt__EffectiveFromDate__c, vlocity_cmt__EffectiveUntilDate__c
+        FROM vlocity_cmt__PriceList__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+      validation:
+        date_range:
+          start_field: vlocity_cmt__EffectiveFromDate__c
+          end_field: vlocity_cmt__EffectiveUntilDate__c
+          rule: end_after_start
+      severity: error
+
+    - name: OrphanedEntries
+      description: Check for orphaned price list entries
+      query: |
+        SELECT Id, Name, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__PriceListId__c NOT IN (
+          SELECT Id FROM vlocity_cmt__PriceList__c
+        )
+      validation:
+        relationship_check:
+          field: vlocity_cmt__PriceListId__c
+          parent_object: vlocity_cmt__PriceList__c
+      severity: warning
+

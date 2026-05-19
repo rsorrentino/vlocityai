@@ -1,0 +1,43 @@
+# Validate org readiness for deployment.
+# Checks for inactive calculation procedures and recent Apex job failures
+# that would cause errors or unexpected behaviour after a deploy.
+
+DeploymentReadiness:
+  tests:
+    - name: CalculationProceduresMissingGlobalKey
+      description: Calculation Procedures without a Global Key — cannot be reliably exported or deployed
+      query: |
+        SELECT Id, Name, vlocity_cmt__Type__c, vlocity_cmt__SubType__c
+        FROM vlocity_cmt__CalculationProcedure__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: CalculationProceduresMissingGlobalKey
+          success_message: All Calculation Procedures have a Global Key
+      severity: error
+
+    - name: CalculationProceduresMissingType
+      description: Calculation Procedures without a Type — pricing engine cannot categorise or invoke them correctly
+      query: |
+        SELECT Id, Name, vlocity_cmt__SubType__c
+        FROM vlocity_cmt__CalculationProcedure__c
+        WHERE vlocity_cmt__Type__c = null
+      validation:
+        expect_empty:
+          check_name: CalculationProceduresMissingType
+          success_message: All Calculation Procedures have a Type
+      severity: warning
+
+    - name: RecentAsyncApexJobFailures
+      description: Batch Apex jobs that failed or were aborted today — may indicate broken triggers or post-deploy issues
+      query: |
+        SELECT Id, ApexClass.Name, Status, ExtendedStatus, CreatedDate
+        FROM AsyncApexJob
+        WHERE Status IN ('Failed', 'Aborted')
+        AND JobType = 'BatchApex'
+        AND CreatedDate = TODAY
+      validation:
+        expect_empty:
+          check_name: RecentAsyncApexJobFailures
+          success_message: No Batch Apex job failures recorded today
+      severity: warning

@@ -1,0 +1,43 @@
+RateCode:
+  tests:
+    - name: RequiredFields
+      description: Check that all required fields are populated
+      query: |
+        SELECT Id, Name, GT_OrgCode__c, GT_VATCode__c, GT_VATRate__c,
+               GT_StartDate__c, GT_EndDate__c
+        FROM GT_RateCode__c
+        WHERE GT_OrgCode__c = '{{countryCode}}'
+      validation:
+        required_fields:
+          - GT_OrgCode__c
+          - GT_VATCode__c
+        check_duplicates:
+          field: Name
+      severity: error
+
+    - name: DateRanges
+      description: Validate effective date ranges
+      query: |
+        SELECT Id, Name, GT_StartDate__c, GT_EndDate__c
+        FROM GT_RateCode__c
+        WHERE GT_StartDate__c != null AND GT_EndDate__c != null
+        AND GT_OrgCode__c = '{{countryCode}}'
+      validation:
+        date_range:
+          start_field: GT_StartDate__c
+          end_field: GT_EndDate__c
+          rule: end_after_start
+      severity: error
+
+    - name: MissingVATCode
+      description: Check for rate codes missing VAT codes
+      query: |
+        SELECT Id, Name, GT_VATCode__c, GT_OrgCode__c
+        FROM GT_RateCode__c
+        WHERE GT_VATCode__c = null
+        AND GT_OrgCode__c = '{{countryCode}}'
+      validation:
+        required_fields:
+          - GT_VATCode__c
+      severity: error
+

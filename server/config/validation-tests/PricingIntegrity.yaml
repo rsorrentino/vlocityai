@@ -1,0 +1,94 @@
+# Validate pricing data integrity.
+# Checks for broken references between Price Lists, Price List Entries,
+# Pricing Elements, and Pricing Variables.
+
+PricingIntegrity:
+  tests:
+    - name: PriceListEntriesWithoutProduct
+      description: Price List Entries that have no product reference
+      query: |
+        SELECT Id, Name, vlocity_cmt__ProductId__c, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__ProductId__c = null
+      validation:
+        expect_empty:
+          check_name: PriceListEntriesWithoutProduct
+          success_message: All Price List Entries have a product reference
+      severity: error
+
+    - name: PriceListEntriesWithoutPriceList
+      description: Price List Entries not linked to any Price List
+      query: |
+        SELECT Id, Name, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__PriceListId__c = null
+      validation:
+        expect_empty:
+          check_name: PriceListEntriesWithoutPriceList
+          success_message: All Price List Entries are linked to a Price List
+      severity: error
+
+    - name: DuplicatePriceListEntries
+      description: Same product appearing more than once in the same Price List
+      query: |
+        SELECT Id, vlocity_cmt__PriceListId__c, vlocity_cmt__ProductId__c
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__PriceListId__c != null
+        AND vlocity_cmt__ProductId__c != null
+      validation:
+        check_duplicates_composite:
+          fields:
+            - vlocity_cmt__PriceListId__c
+            - vlocity_cmt__ProductId__c
+      severity: error
+
+    - name: PricingElementsWithoutPriceList
+      description: Active Pricing Elements not linked to any Price List
+      query: |
+        SELECT Id, Name, vlocity_cmt__PriceListId__c
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__PriceListId__c = null
+      validation:
+        expect_empty:
+          check_name: PricingElementsWithoutPriceList
+          success_message: All active Pricing Elements are linked to a Price List
+      severity: error
+
+    - name: PricingElementsWithoutPricingVariable
+      description: Active Pricing Elements not linked to any Pricing Variable
+      query: |
+        SELECT Id, Name, vlocity_cmt__PricingVariableId__c
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__PricingVariableId__c = null
+      validation:
+        expect_empty:
+          check_name: PricingElementsWithoutPricingVariable
+          success_message: All active Pricing Elements have a Pricing Variable
+      severity: warning
+
+    - name: PricingElementsWithNullAmount
+      description: Active Pricing Elements where the amount is null (may produce zero price)
+      query: |
+        SELECT Id, Name, vlocity_cmt__Amount__c
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__IsActive__c = true
+        AND vlocity_cmt__Amount__c = null
+      validation:
+        expect_empty:
+          check_name: PricingElementsWithNullAmount
+          success_message: All active Pricing Elements have a non-null amount
+      severity: warning
+
+    - name: PriceListEntriesOnInactivePriceLists
+      description: Price List Entries linked to inactive Price Lists (unreachable in pricing engine)
+      query: |
+        SELECT Id, Name, vlocity_cmt__PriceListId__r.Name
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__PriceListId__r.vlocity_cmt__IsActive__c = false
+      validation:
+        expect_empty:
+          check_name: PriceListEntriesOnInactivePriceLists
+          success_message: All Price List Entries are on active Price Lists
+      severity: warning

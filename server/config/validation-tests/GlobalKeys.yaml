@@ -1,0 +1,139 @@
+# Validate that all key Vlocity objects have a GlobalKey set.
+# Records without a GlobalKey cannot be reliably exported, deployed,
+# or matched across orgs.
+
+GlobalKeys:
+  tests:
+    - name: Product2MissingGlobalKey
+      description: Active products without a Global Key cannot be exported/deployed reliably
+      query: |
+        SELECT Id, Name, ProductCode
+        FROM Product2
+        WHERE vlocity_cmt__GlobalKey__c = null
+        AND IsActive = true
+      validation:
+        expect_empty:
+          check_name: Product2MissingGlobalKey
+          success_message: All active products have a Global Key
+      severity: error
+
+    - name: PriceListMissingGlobalKey
+      description: Active Price Lists without a Global Key cannot be exported/deployed reliably
+      query: |
+        SELECT Id, Name, vlocity_cmt__Code__c
+        FROM vlocity_cmt__PriceList__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+        AND vlocity_cmt__IsActive__c = true
+      validation:
+        expect_empty:
+          check_name: PriceListMissingGlobalKey
+          success_message: All active Price Lists have a Global Key
+      severity: error
+
+    - name: PriceListEntryMissingGlobalKey
+      description: Price List Entries without a Global Key cannot be matched across orgs
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__PriceListEntry__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: PriceListEntryMissingGlobalKey
+          success_message: All Price List Entries have a Global Key
+      severity: warning
+
+    - name: PricingElementMissingGlobalKey
+      description: Pricing Elements without a Global Key cannot be matched across orgs
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__PricingElement__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: PricingElementMissingGlobalKey
+          success_message: All Pricing Elements have a Global Key
+      severity: warning
+
+    - name: AttributeMissingGlobalKey
+      description: Attributes without a Global Key cannot be reliably exported/deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Attribute__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: AttributeMissingGlobalKey
+          success_message: All Attributes have a Global Key
+      severity: warning
+
+    - name: AttributeCategoryMissingGlobalKey
+      description: Attribute Categories without a Global Key
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__AttributeCategory__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: AttributeCategoryMissingGlobalKey
+          success_message: All Attribute Categories have a Global Key
+      severity: warning
+
+    - name: PicklistMissingGlobalKey
+      description: Picklists without a Global Key cannot be reliably deployed
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Picklist__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: PicklistMissingGlobalKey
+          success_message: All Picklists have a Global Key
+      severity: error
+
+    - name: ProductChildItemMissingGlobalKey
+      description: Product Child Items without a Global Key
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__ProductChildItem__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: ProductChildItemMissingGlobalKey
+          success_message: All Product Child Items have a Global Key
+      severity: warning
+
+    - name: AttributeAssignmentMissingGlobalKey
+      description: Attribute Assignments without a Global Key
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__AttributeAssignment__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: AttributeAssignmentMissingGlobalKey
+          success_message: All Attribute Assignments have a Global Key
+      severity: warning
+
+    - name: RuleMissingGlobalKey
+      description: Rules without a Global Key
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__Rule__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: RuleMissingGlobalKey
+          success_message: All Rules have a Global Key
+      severity: warning
+
+    - name: CalculationMatrixMissingGlobalKey
+      description: Calculation Matrices without a Global Key
+      query: |
+        SELECT Id, Name
+        FROM vlocity_cmt__CalculationMatrix__c
+        WHERE vlocity_cmt__GlobalKey__c = null
+      validation:
+        expect_empty:
+          check_name: CalculationMatrixMissingGlobalKey
+          success_message: All Calculation Matrices have a Global Key
+      severity: warning

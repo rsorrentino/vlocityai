@@ -1,0 +1,84 @@
+# Validate repair product data completeness.
+# NOTE: The repair-specific field checks (Reason, SupplierCode, RepairType,
+# ProductClassification) reference fields that are org-specific and use the
+# GT_ namespace in this implementation. If those fields do not exist the
+# YAML test runner will automatically skip the test rather than fail it.
+# Update the field names below to match the actual API names in your org.
+
+RepairProducts:
+  tests:
+    - name: MissingReasonPicklist
+      description: Repair products with no Reason value set — required for repair order processing
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c, GT_Reason__c
+        FROM Product2
+        WHERE IsActive = true
+        AND vlocity_cmt__Type__c = 'Repair'
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND GT_Reason__c = null
+      validation:
+        expect_empty:
+          check_name: MissingReasonPicklist
+          success_message: All Repair products have a Reason value
+      severity: warning
+
+    - name: MissingRepairSupplierCode
+      description: Repair products without a Supplier Code — required for supplier routing
+      query: |
+        SELECT Id, Name, ProductCode, GT_SupplierCode__c
+        FROM Product2
+        WHERE IsActive = true
+        AND vlocity_cmt__Type__c = 'Repair'
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND GT_SupplierCode__c = null
+      validation:
+        expect_empty:
+          check_name: MissingRepairSupplierCode
+          success_message: All Repair products have a Supplier Code
+      severity: warning
+
+    - name: MissingRepairType
+      description: Repair products without a Repair Type field value
+      query: |
+        SELECT Id, Name, ProductCode, GT_RepairType__c
+        FROM Product2
+        WHERE IsActive = true
+        AND vlocity_cmt__Type__c = 'Repair'
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND GT_RepairType__c = null
+      validation:
+        expect_empty:
+          check_name: MissingRepairType
+          success_message: All Repair products have a Repair Type
+      severity: warning
+
+    - name: MissingProductClassification
+      description: Repair products without a Product Classification — required for service categorisation
+      query: |
+        SELECT Id, Name, ProductCode, GT_ProductClassification__c
+        FROM Product2
+        WHERE IsActive = true
+        AND vlocity_cmt__Type__c = 'Repair'
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND GT_ProductClassification__c = null
+      validation:
+        expect_empty:
+          check_name: MissingProductClassification
+          success_message: All Repair products have a Product Classification
+      severity: warning
+
+    - name: MissingSupplierAttribute
+      description: Repair products with no Supplier attribute definition via AttributeAssignment
+      # NOTE: vlocity_cmt__ObjectId__c is a Text field (not a proper ID lookup), so SOQL semi-joins
+      # using that field as a subquery target are not supported. This test checks AttributeAssignments
+      # where the Supplier attribute exists but the ObjectId is empty — a complementary signal.
+      query: |
+        SELECT Id, Name, vlocity_cmt__AttributeId__c, vlocity_cmt__ObjectId__c
+        FROM vlocity_cmt__AttributeAssignment__c
+        WHERE vlocity_cmt__AttributeId__r.Name = 'Supplier'
+        AND vlocity_cmt__ObjectId__c = null
+      validation:
+        expect_empty:
+          check_name: MissingSupplierAttribute
+          success_message: All Supplier attribute assignments have an associated object
+      severity: warning

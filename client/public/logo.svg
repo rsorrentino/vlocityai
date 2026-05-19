@@ -1,0 +1,23 @@
+<svg width="200" height="40" viewBox="0 0 200 40" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle/icon -->
+  <circle cx="20" cy="20" r="16" fill="#1976d2" opacity="0.1"/>
+  <!-- Data/Network icon -->
+  <g transform="translate(8, 8)">
+    <!-- Central node -->
+    <circle cx="12" cy="12" r="3" fill="#1976d2"/>
+    <!-- Connected nodes -->
+    <circle cx="4" cy="4" r="2" fill="#1976d2"/>
+    <circle cx="20" cy="4" r="2" fill="#1976d2"/>
+    <circle cx="4" cy="20" r="2" fill="#1976d2"/>
+    <circle cx="20" cy="20" r="2" fill="#1976d2"/>
+    <!-- Connection lines -->
+    <line x1="12" y1="12" x2="4" y2="4" stroke="#1976d2" stroke-width="1.5" opacity="0.6"/>
+    <line x1="12" y1="12" x2="20" y2="4" stroke="#1976d2" stroke-width="1.5" opacity="0.6"/>
+    <line x1="12" y1="12" x2="4" y2="20" stroke="#1976d2" stroke-width="1.5" opacity="0.6"/>
+    <line x1="12" y1="12" x2="20" y2="20" stroke="#1976d2" stroke-width="1.5" opacity="0.6"/>
+  </g>
+  <!-- Text -->
+  <text x="45" y="26" font-family="Arial, sans-serif" font-size="16" font-weight="600" fill="#1976d2">
+    DataPack Manager
+  </text>
+</svg>

@@ -1,0 +1,253 @@
+# Validate GT_StagingArea__c data quality before and after service creation.
+#
+# These checks mirror the exact validation logic in AMP_ServiceCreationSingleBatch.cls:
+# - Required fields that cause ErrorItemNumber, ErrorProductName, etc.
+# - Post-creation completeness checks for generated records
+# - Status-based checks for failed or stale processing
+#
+# NOTE: GT_StagingArea__c may not exist in all orgs. The YAML test runner
+# automatically skips tests when INVALID_FIELD / MALFORMED_QUERY errors occur.
+# Update org-specific field names (GT_AmplifonSubclass__c groups, AU_ codes) as needed.
+
+StagingAreaIntegrity:
+  tests:
+
+    # ── Required field checks (mirror Apex ErrorItemNumber, ErrorProductName, etc.) ──
+
+    - name: StagingMissingItemNumber
+      description: Staging records with no GT_ItemNumber__c — will throw ErrorItemNumber in service creation batch
+      query: |
+        SELECT Id, Name, GT_RecordStatus__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_ItemNumber__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingItemNumber
+          success_message: All New staging records have an Item Number
+      severity: error
+
+    - name: StagingMissingProductName
+      description: Staging records with no GT_ProductName__c — will throw ErrorProductName in service creation batch
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_RecordStatus__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_ProductName__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingProductName
+          success_message: All New staging records have a Product Name
+      severity: error
+
+    - name: StagingMissingOrganizationCode
+      description: Staging records with no GT_OrganizationCode__c — will throw ErrorOrganizationCode; cannot map to country
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_RecordStatus__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_OrganizationCode__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingOrganizationCode
+          success_message: All New staging records have an Organization Code
+      severity: error
+
+    - name: StagingMissingLifecycle
+      description: Staging records with no GT_Lifecycle__c — will throw ErrorLifeCycle; required to determine IsOrderable on Product2
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_OrganizationCode__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_Lifecycle__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingLifecycle
+          success_message: All New staging records have a Lifecycle value
+      severity: error
+
+    - name: StagingMissingSubclass
+      description: Staging records with no GT_AmplifonSubclass__c — will throw ErrorSubclass; required to resolve Vlocity Object Type
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_OrganizationCode__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_AmplifonSubclass__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingSubclass
+          success_message: All New staging records have an Amplifon Subclass
+      severity: error
+
+    - name: StagingMissingSalesVatCode
+      description: Staging records with no GT_SalesVatCode__c — will throw ErrorSalesVatCode; required to create GT_RateTable__c for the product
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_OrganizationCode__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_SalesVatCode__c = null
+      validation:
+        expect_empty:
+          check_name: StagingMissingSalesVatCode
+          success_message: All New staging records have a Sales VAT Code
+      severity: warning
+
+    - name: StagingHAMissingColorDesc
+      description: |
+        HA/Implant staging records with no color description — will throw ErrorColorDesc.
+        GT_ColorDesc__c is required for color attribute assignment on Hearing Aid products.
+        NOTE: GT_AmplifonSubclass__c values for HA vary by org — update the IN list to match your org.
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_AmplifonSubclass__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'New'
+        AND GT_AmplifonSubclass__c IN ('HA Standard', 'HA Custom', 'Implant External', 'Ponto-Baha')
+        AND (GT_ColorDesc__c = null OR GT_ColorDesc__c = 'No color')
+      validation:
+        expect_empty:
+          check_name: StagingHAMissingColorDesc
+          success_message: All HA/Implant staging records have a Color Description
+      severity: warning
+
+    # ── Status checks ─────────────────────────────────────────────────────────
+
+    - name: StagingRecordsInErrorStatus
+      description: Staging records that the service creation batch marked as 'Error' — need investigation and reprocessing
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_ProductName__c, GT_OrganizationCode__c
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'Error'
+      validation:
+        expect_empty:
+          check_name: StagingRecordsInErrorStatus
+          success_message: No staging records in Error status
+      severity: error
+
+    - name: StagingRecordsLongInProgress
+      description: |
+        Staging records stuck in 'Progress' status — the batch may have been interrupted mid-run.
+        A record set to Progress at batch start but never updated to Updated/Error indicates a failed job.
+      query: |
+        SELECT Id, Name, GT_ItemNumber__c, GT_RecordStatus__c, LastModifiedDate
+        FROM GT_StagingArea__c
+        WHERE GT_RecordStatus__c = 'Progress'
+      validation:
+        expect_empty:
+          check_name: StagingRecordsLongInProgress
+          success_message: No staging records stuck in Progress status
+      severity: warning
+
+    # ── Post-creation completeness checks ─────────────────────────────────────
+
+    - name: ActiveProductsWithoutSKURecord
+      description: |
+        Active products with no GT_ProductSKU__c record — the SKU table is created by the service creation batch
+        and is required for inventory tracking and EarSide/Color management.
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND Id NOT IN (
+          SELECT Product__c
+          FROM GT_ProductSKU__c
+          WHERE Product__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: ActiveProductsWithoutSKURecord
+          success_message: All active products have a SKU record
+      severity: warning
+
+    - name: ActiveProductsWithoutRateTable
+      description: |
+        Active products with no GT_RateTable__c (VAT rate) — the rate table is created by the service creation batch.
+        Products without a rate table cannot be correctly priced in the pricing engine.
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND vlocity_cmt__SpecificationType__c = 'Product'
+        AND Id NOT IN (
+          SELECT Product__c
+          FROM GT_RateTable__c
+          WHERE Product__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: ActiveProductsWithoutRateTable
+          success_message: All active products have a Rate Table
+      severity: warning
+
+    - name: HAProductsWithoutCommercialOffer
+      description: |
+        HA/Implant products with no associated Commercial Offer (vlocity_cmt__SpecificationType__c = 'Offer').
+        The service creation batch generates an Offer product named '{ProductName} OF' for each HA.
+        Missing offers prevent CPQ ordering flows from working.
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND vlocity_cmt__Type__c IN ('HA Standard', 'HA Custom', 'Implant External', 'Ponto-Baha')
+        AND vlocity_cmt__SpecificationType__c = 'Product'
+        AND Id NOT IN (
+          SELECT vlocity_cmt__ParentProductId__c
+          FROM vlocity_cmt__ProductChildItem__c
+          WHERE vlocity_cmt__ChildProductId__r.vlocity_cmt__SpecificationType__c = 'Offer'
+          AND vlocity_cmt__ParentProductId__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: HAProductsWithoutCommercialOffer
+          success_message: All HA/Implant products have a Commercial Offer
+      severity: error
+
+    - name: HAProductsWithoutColorAttributeAssignment
+      description: |
+        HA/Implant products without a Color AttributeAssignment — the batch creates this during service creation
+        for products with a GT_ColorDesc__c value. Missing color attributes break the CPQ color selection flow.
+      query: |
+        SELECT Id, Name, ProductCode
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND vlocity_cmt__Type__c IN ('HA Standard', 'HA Custom', 'Implant External', 'Ponto-Baha')
+        AND vlocity_cmt__SpecificationType__c = 'Product'
+        AND Id NOT IN (
+          SELECT vlocity_cmt__ObjectId__c
+          FROM vlocity_cmt__AttributeAssignment__c
+          WHERE vlocity_cmt__AttributeId__r.Name = 'Color'
+          AND vlocity_cmt__ObjectId__c != null
+        )
+      validation:
+        expect_empty:
+          check_name: HAProductsWithoutColorAttributeAssignment
+          success_message: All HA/Implant products have a Color Attribute Assignment
+      severity: warning
+
+    - name: NonHAProductsWithoutPricebookEntry
+      description: |
+        Non-HA/Implant active products not in the Standard Pricebook.
+        The service creation batch adds these product types to the Standard Pricebook with UnitPrice = 0.
+        Hearing Aid types (HA Standard, HA Custom, Implant, Ponto-Baha) are intentionally excluded.
+      query: |
+        SELECT Id, Name, ProductCode, vlocity_cmt__Type__c
+        FROM Product2
+        WHERE IsActive = true
+        AND GT_CountryCode__c = '{{countryCode}}'
+        AND vlocity_cmt__SpecificationType__c = 'Product'
+        AND vlocity_cmt__Type__c NOT IN ('HA Standard', 'HA Custom', 'Implant External', 'Ponto-Baha')
+        AND Id NOT IN (
+          SELECT Product2Id
+          FROM PricebookEntry
+          WHERE Pricebook2.IsStandard = true
+          AND IsActive = true
+          AND Product2Id != null
+        )
+      validation:
+        expect_empty:
+          check_name: NonHAProductsWithoutPricebookEntry
+          success_message: All non-HA products are in the Standard Pricebook
+      severity: warning
