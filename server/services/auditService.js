@@ -369,6 +369,23 @@ class AuditService {
   }
 
   /**
+   * Return the fully-qualified audit_logs table reference for the active dialect.
+   * PostgreSQL uses a schema-qualified name; SQLite has no schema concept.
+   */
+  getTableRef(sequelize) {
+    const dbType = sequelize.getDialect();
+    const tableRefMap = {
+      postgres: 'vlocity_datapack_manager.audit_logs',
+      sqlite: 'audit_logs',
+    };
+    const tableRef = tableRefMap[dbType];
+    if (!tableRef) {
+      throw new Error(`Unsupported database dialect for audit logging: ${dbType}`);
+    }
+    return tableRef;
+  }
+
+  /**
    * Flush batch to database
    */
   async flushBatch() {
@@ -411,6 +428,7 @@ class AuditService {
 
       // Use raw query with proper parameterization for PostgreSQL arrays
       // For PostgreSQL, we need to handle array types properly
+      const tableRef = this.getTableRef(sequelize);
       const dbType = sequelize.getDialect();
       
       if (dbType === 'postgres') {
@@ -443,7 +461,7 @@ class AuditService {
         }
 
         const query = `
-          INSERT INTO vlocity_datapack_manager.audit_logs (
+          INSERT INTO ${tableRef} (
             timestamp, user_id, username, action, resource_type, resource_id,
             tenant_id, ip_address, user_agent, request_id, session_id,
             status, error_message, metadata, severity, compliance_tags
@@ -461,7 +479,7 @@ class AuditService {
         try {
           for (const entry of insertData) {
             await sequelize.query(`
-              INSERT INTO audit_logs (
+              INSERT INTO ${tableRef} (
                 timestamp, user_id, username, action, resource_type, resource_id,
                 tenant_id, ip_address, user_agent, request_id, session_id,
                 status, error_message, metadata, severity, compliance_tags
@@ -546,6 +564,7 @@ class AuditService {
 
     try {
       const { sequelize } = databaseService;
+      const tableRef = this.getTableRef(sequelize);
       const conditions = [];
       const replacements = {};
 
@@ -593,7 +612,7 @@ class AuditService {
       // Get total count
       const [countResult] = await sequelize.query(`
         SELECT COUNT(*) as total
-        FROM vlocity_datapack_manager.audit_logs
+        FROM ${tableRef}
         ${whereClause}
       `, { replacements });
 
@@ -602,7 +621,7 @@ class AuditService {
       // Get logs
       const [logs] = await sequelize.query(`
         SELECT *
-        FROM vlocity_datapack_manager.audit_logs
+        FROM ${tableRef}
         ${whereClause}
         ORDER BY timestamp DESC
         LIMIT :limit OFFSET :offset
@@ -640,11 +659,12 @@ class AuditService {
 
     try {
       const { sequelize } = databaseService;
+      const tableRef = this.getTableRef(sequelize);
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - this.retentionDays);
 
       const [result] = await sequelize.query(`
-        DELETE FROM vlocity_datapack_manager.audit_logs
+        DELETE FROM ${tableRef}
         WHERE timestamp < :cutoffDate
       `, {
         replacements: { cutoffDate },
@@ -666,17 +686,18 @@ class AuditService {
 
     try {
       const { sequelize } = databaseService;
+      const tableRef = this.getTableRef(sequelize);
       
       const [stats] = await sequelize.query(`
         SELECT
           COUNT(*) as total_events,
           COUNT(DISTINCT user_id) as unique_users,
           COUNT(DISTINCT action) as unique_actions,
-          COUNT(*) FILTER (WHERE status = 'success') as successful_events,
-          COUNT(*) FILTER (WHERE status = 'failed') as failed_events,
-          COUNT(*) FILTER (WHERE severity = 'error') as error_events,
-          COUNT(*) FILTER (WHERE severity = 'warning') as warning_events
-        FROM vlocity_datapack_manager.audit_logs
+          SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as successful_events,
+          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed_events,
+          SUM(CASE WHEN severity = 'error' THEN 1 ELSE 0 END) as error_events,
+          SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) as warning_events
+        FROM ${tableRef}
         WHERE timestamp >= :startDate AND timestamp <= :endDate
       `, {
         replacements: { startDate, endDate },
