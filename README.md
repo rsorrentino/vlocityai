@@ -114,6 +114,8 @@ The shared app shell is constrained to the viewport height and keeps page scroll
 
 The chat page now follows that shell instead of using a negative top margin and viewport-based height override, so its full-height layout no longer slides underneath the top bar.
 
+The chat workspace also pins its root content surface to `background-color: white`, ensuring the main chat pane renders on a solid white canvas instead of inheriting the app background.
+
 New file: `client/src/components/Sidebar.js`.
 
 #### Top bar — slimmed down

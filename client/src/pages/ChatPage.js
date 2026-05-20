@@ -168,6 +168,7 @@ export default function ChatPage() {
         display: 'flex',
         height: '100%',
         minHeight: 0,
+        bgcolor: '#fff',
         mx: { xs: -2, sm: -3, md: -4 },
         overflow: 'hidden',
       }}
@@ -188,7 +189,7 @@ export default function ChatPage() {
       </Box>
 
       {/* Chat window pane */}
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0, bgcolor: '#fff' }}>
         {error && conversations.length > 0 && (
           <Alert severity="warning" sx={{ m: 2, mb: 0 }}>
             {error}
