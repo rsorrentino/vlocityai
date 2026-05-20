@@ -29,7 +29,13 @@ const config = {
       acquire: 30000,
       idle: 10000
     }
-  }
+  },
+  // Internal SQLite fallback used when PostgreSQL is configured but unavailable
+  sqlite_fallback: {
+    dialect: 'sqlite',
+    storage: path.join(__dirname, '../../data/vlocity_manager.db'),
+    logging: false,
+  },
 };
 
 module.exports = config;

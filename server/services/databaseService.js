@@ -1,21 +1,26 @@
 const { Sequelize } = require('sequelize');
 const path = require('path');
+const fs = require('fs');
 const logger = require('../utils/logger');
 
 class DatabaseService {
   constructor() {
     this.sequelize = null;
     this.isConnected = false;
+    this.usingSQLiteFallback = false;
   }
 
   async connect() {
     try {
-      // Use PostgreSQL if DATABASE_URL is provided, otherwise fallback to SQLite
+      // Use PostgreSQL if DATABASE_URL is provided, otherwise use SQLite directly
       const databaseUrl = process.env.DATABASE_URL || 
         `postgresql://${process.env.DB_USER || 'postgres'}:${process.env.DB_PASSWORD || 'password'}@${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 5432}/${process.env.DB_NAME || 'vlocity_manager'}`;
 
-      // Check if it's a PostgreSQL URL or SQLite fallback
-      if (databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres://')) {
+      const isPostgres = databaseUrl.startsWith('postgresql://') || databaseUrl.startsWith('postgres://');
+
+      if (isPostgres) {
+        const schemaName = process.env.DB_SCHEMA || 'vlocity_datapack_manager';
+        logger.info(`🔗 Connecting to PostgreSQL database with schema: ${schemaName}...`);
         this.sequelize = new Sequelize(databaseUrl, {
           dialect: 'postgres',
           logging: (msg) => logger.debug(msg),
@@ -29,32 +34,23 @@ class DatabaseService {
             timestamps: true,
             underscored: true,
             freezeTableName: true,
-            schema: process.env.DB_SCHEMA || 'vlocity_datapack_manager'
+            schema: schemaName
           },
-          schema: process.env.DB_SCHEMA || 'vlocity_datapack_manager'
+          schema: schemaName
         });
-        const schemaName = process.env.DB_SCHEMA || 'vlocity_datapack_manager';
-        logger.info(`🔗 Connecting to PostgreSQL database with schema: ${schemaName}...`);
+
+        try {
+          await this.connectWithRetry();
+        } catch (pgError) {
+          logger.warn(`⚠️  PostgreSQL unavailable (${pgError.message}). Falling back to internal SQLite database...`);
+          await this._initSQLite();
+        }
       } else {
-        // Fallback to SQLite
-        const dbPath = path.join(__dirname, '../../data/vlocity_manager.db');
-        this.sequelize = new Sequelize({
-          dialect: 'sqlite',
-          storage: dbPath,
-          logging: (msg) => logger.debug(msg),
-          define: {
-            timestamps: true,
-            underscored: true,
-            freezeTableName: true
-          }
-        });
-        logger.info('🔗 Connecting to SQLite database...');
+        await this._initSQLite();
       }
 
-      // Test the connection with retry logic
-      await this.connectWithRetry();
       this.isConnected = true;
-      
+
       const dbType = this.sequelize.getDialect();
       logger.info(`✅ ${dbType.toUpperCase()} database connected successfully`);
       
@@ -72,6 +68,32 @@ class DatabaseService {
       this.isConnected = false;
       throw error;
     }
+  }
+
+  /**
+   * Initialize and connect to the internal SQLite database.
+   * This is used as the primary database when no PostgreSQL URL is configured,
+   * and as a fallback when PostgreSQL is unavailable.
+   */
+  async _initSQLite() {
+    const dataDir = path.join(__dirname, '../../data');
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+    }
+    const dbPath = path.join(dataDir, 'vlocity_manager.db');
+    this.sequelize = new Sequelize({
+      dialect: 'sqlite',
+      storage: dbPath,
+      logging: (msg) => logger.debug(msg),
+      define: {
+        timestamps: true,
+        underscored: true,
+        freezeTableName: true
+      }
+    });
+    this.usingSQLiteFallback = true;
+    logger.info(`🔗 Connecting to SQLite database at ${dbPath}...`);
+    await this.connectWithRetry(3, 200);
   }
 
   /**
@@ -122,10 +144,42 @@ class DatabaseService {
 
   async syncModels() {
     try {
-      // Import models (importing all ensures they are registered on this sequelize instance)
-      const { User, Job, OrgAnalysis, Org, SystemStatus, SfdmuConfig } = require('../models');
+      const models = require('../models');
 
-      // Sync all models - only creates missing tables, never alters or drops existing ones
+      // Rebind all Sequelize model classes to the active connection so that:
+      //   1. ORM queries (User.findOne, etc.) go through this connection.
+      //   2. sequelize.sync() knows which tables to create.
+      //
+      // Models are defined on a temporary connection in models/index.js at
+      // module-load time (before databaseService.connect() is called). The
+      // rebind below updates each model's internal _sequelize reference and
+      // registers it with this instance's ModelManager, ensuring consistent
+      // behaviour regardless of whether we are using PostgreSQL or the SQLite
+      // fallback.
+      const modelClasses = [
+        models.User,
+        models.Job,
+        models.OrgAnalysis,
+        models.Org,
+        models.SystemStatus,
+        models.SfdmuConfig,
+      ];
+
+      for (const model of modelClasses) {
+        if (model && model._sequelize !== this.sequelize) {
+          model._sequelize = this.sequelize;
+          this.sequelize.modelManager.addModel(model);
+        }
+      }
+
+      // Keep the exported sequelize reference in sync so callers that
+      // destructure it (e.g. `const { sequelize } = require('../models')`)
+      // after this point receive the active instance.
+      models.sequelize = this.sequelize;
+
+      // Sync all models — creates missing tables without altering or dropping
+      // existing ones.  This is particularly important for the SQLite fallback
+      // where no prior migrations have been run.
       await this.sequelize.sync({ alter: false });
 
       logger.info('✅ Database models synchronized');
@@ -162,7 +216,8 @@ class DatabaseService {
       connected: this.isConnected,
       dialect: this.sequelize ? this.sequelize.getDialect() : 'unknown',
       host: this.sequelize ? this.sequelize.options.host : 'unknown',
-      database: this.sequelize ? this.sequelize.options.database : 'unknown'
+      database: this.sequelize ? this.sequelize.options.database : 'unknown',
+      usingSQLiteFallback: this.usingSQLiteFallback,
     };
   }
 }

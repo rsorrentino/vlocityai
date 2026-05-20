@@ -10,7 +10,7 @@ Vlocity DataPack Manager is a complete solution for managing Vlocity DataPack op
 - **AI Chat Agent**: Natural-language interface for querying Vlocity/Salesforce data — ask questions like "how many catalogs do we have?" or "any promotions for this product?" Supports Anthropic Claude, OpenAI GPT-4o, GitHub Copilot, and Ollama (local)
 - **Enterprise Features**: Monitoring, audit logging, circuit breakers, bounded execution queue with real abort
 - **Real-Time Monitoring**: WebSocket-based live job progress with manual reconnect controls
-- **Database Persistence**: PostgreSQL with complete job history
+- **Database Persistence**: PostgreSQL with complete job history, automatic SQLite fallback when PostgreSQL is unavailable
 - **Multi-Org Support**: Manage multiple Salesforce environments
 - **Catalog Manager**: Unified CRUD interface for products, price lists, promotions, attributes, picklists, pricing variables, catalogs, product relationships, rate codes, and rate tables — with snapshot/rollback
 - **Data Migration (SFDMU)**: SF CLI plugin integration for cross-org data migration
@@ -1028,7 +1028,7 @@ The system status panel now checks:
 ### **Required Software**
 - **Node.js** >= 18.0.0
 - **npm** >= 8.0.0
-- **PostgreSQL** >= 13 (or SQLite for local dev — auto-fallback)
+- **PostgreSQL** >= 13 (or SQLite for local dev — auto-fallback when PostgreSQL is unavailable)
 - **Vlocity CLI** (`npm install -g vlocity`)
 - **Salesforce CLI** (`npm install -g @salesforce/cli` or via the installer at developer.salesforce.com/tools/salesforcecli)
 
@@ -1418,6 +1418,8 @@ tail -f logs/error.log
 psql -c "SELECT 1;"
 echo $DATABASE_URL
 ```
+
+> **Automatic SQLite fallback**: if PostgreSQL is configured but unreachable (e.g. server not started, wrong credentials), the app automatically falls back to an embedded SQLite database stored at `data/vlocity_manager.db`. The server logs will print a warning such as `⚠️  PostgreSQL unavailable … Falling back to internal SQLite database…`. The app remains fully functional with SQLite; data is stored locally and all features work. Switching back to PostgreSQL only requires making the server reachable again and restarting the app.
 
 ### **3. Vlocity CLI Issues**
 ```bash
