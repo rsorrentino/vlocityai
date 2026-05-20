@@ -49,6 +49,7 @@ npm run format
 
 ## Key conventions
 
+- Playwright MCP is preconfigured for the repo: VS Code reads `.vscode/mcp.json`, and Copilot CLI project sessions can use `.github/mcp.json`.
 - Client auth is cookie-based, not localStorage-token-based. `client/src/contexts/AuthContext.js` sets `axios.defaults.withCredentials = true`, calls relative `/api/...` endpoints, and expects the JWT in the `auth_token` httpOnly cookie.
 - When adding protected UI, keep `App.js`, `ProtectedRoute`, and `Sidebar.js` in sync. New pages usually need both client-side gating and matching server middleware such as `authenticate`, `adminOnly`, or `requirePermission`.
 - On the server, prefer `asyncHandler` and the shared error types from `server/middleware/errorHandler.js` instead of route-local promise wrappers. Throw `ValidationError`, `UnauthorizedError`, etc., and let the shared error middleware shape the response.

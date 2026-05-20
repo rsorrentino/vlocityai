@@ -1104,6 +1104,7 @@ npm run migrate-sfdmu-type       # Add 'sfdmu' to PostgreSQL job type enum (run 
 ## ⚙️ Configuration
 
 Repository-specific GitHub Copilot guidance lives in `.github/copilot-instructions.md`.
+Playwright MCP is preconfigured in `.vscode/mcp.json` for VS Code workspaces and `.github/mcp.json` for project-level Copilot sessions.
 
 ### **Environment Variables (.env)**
 
