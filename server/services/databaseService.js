@@ -43,10 +43,10 @@ class DatabaseService {
           await this.connectWithRetry();
         } catch (pgError) {
           logger.warn(`⚠️  PostgreSQL unavailable (${pgError.message}). Falling back to internal SQLite database...`);
-          await this._initSQLite();
+          await this._initSQLite(true); // true = this is a fallback, not the primary database
         }
       } else {
-        await this._initSQLite();
+        await this._initSQLite(false); // false = SQLite is the intended primary database
       }
 
       this.isConnected = true;
@@ -72,10 +72,10 @@ class DatabaseService {
 
   /**
    * Initialize and connect to the internal SQLite database.
-   * This is used as the primary database when no PostgreSQL URL is configured,
-   * and as a fallback when PostgreSQL is unavailable.
+   * @param {boolean} isFallback - true when called as a fallback after PostgreSQL failed,
+   *   false when SQLite is the primary/intended database (no postgres URL configured).
    */
-  async _initSQLite() {
+  async _initSQLite(isFallback = false) {
     const dataDir = path.join(__dirname, '../../data');
     if (!fs.existsSync(dataDir)) {
       fs.mkdirSync(dataDir, { recursive: true });
@@ -91,8 +91,9 @@ class DatabaseService {
         freezeTableName: true
       }
     });
-    this.usingSQLiteFallback = true;
+    this.usingSQLiteFallback = isFallback;
     logger.info(`🔗 Connecting to SQLite database at ${dbPath}...`);
+    // SQLite is a local file; a short retry window is sufficient.
     await this.connectWithRetry(3, 200);
   }
 
@@ -167,6 +168,11 @@ class DatabaseService {
 
       for (const model of modelClasses) {
         if (model && model._sequelize !== this.sequelize) {
+          // NOTE: `_sequelize` is a Sequelize internal property (Sequelize 6).
+          // There is no public API to rebind an already-defined model to a
+          // different Sequelize instance, so we update the private property
+          // directly. This is tracked as technical debt; if Sequelize adds a
+          // supported rebind method in a future version, this should be updated.
           model._sequelize = this.sequelize;
           this.sequelize.modelManager.addModel(model);
         }
