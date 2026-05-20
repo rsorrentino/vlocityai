@@ -112,6 +112,8 @@ The navigation has been moved from the crowded top bar into a **permanent left s
 
 The shared app shell is constrained to the viewport height and keeps page scrolling inside the main content pane, which prevents the top bar from overlapping page content.
 
+The chat page now follows that shell instead of using a negative top margin and viewport-based height override, so its full-height layout no longer slides underneath the top bar.
+
 New file: `client/src/components/Sidebar.js`.
 
 #### Top bar — slimmed down

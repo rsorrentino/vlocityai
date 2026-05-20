@@ -167,7 +167,7 @@ function AppContent() {
               overflowX: 'hidden',
             }}
           >
-            <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
+            <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 }, height: '100%' }}>
               <ErrorBoundary>
                 <ScrollToTop />
                 <Routes>

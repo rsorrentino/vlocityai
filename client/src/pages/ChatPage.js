@@ -127,8 +127,7 @@ export default function ChatPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: 'calc(100vh - 64px)',
-          mt: -3,
+          height: '100%',
         }}
       >
         <CircularProgress />
@@ -143,8 +142,7 @@ export default function ChatPage() {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          height: 'calc(100vh - 64px)',
-          mt: -3,
+          height: '100%',
           px: 2,
         }}
       >
@@ -165,12 +163,11 @@ export default function ChatPage() {
   }
 
   return (
-    // Negative margin to escape the page container's padding and go full-height
     <Box
       sx={{
         display: 'flex',
-        height: 'calc(100vh - 64px)',
-        mt: -3,
+        height: '100%',
+        minHeight: 0,
         mx: { xs: -2, sm: -3, md: -4 },
         overflow: 'hidden',
       }}
