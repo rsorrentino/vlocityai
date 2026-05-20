@@ -1,13 +1,14 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Box,
+  Button,
   TextField,
   IconButton,
   Typography,
   CircularProgress,
   Tooltip,
 } from '@mui/material';
-import { Send as SendIcon, StopCircle as StopIcon } from '@mui/icons-material';
+import { Add as AddIcon, Send as SendIcon, StopCircle as StopIcon } from '@mui/icons-material';
 import axios from 'axios';
 import ChatMessage from './ChatMessage';
 import AdapterSettings from './AdapterSettings';
@@ -15,7 +16,7 @@ import { useAdapterConfig } from './AdapterSettings';
 
 const WELCOME = 'Ask me anything about your Vlocity configuration — catalogs, products, pricing, promotions, and more.';
 
-export default function ChatWindow({ conversation, onFirstMessage, orgs }) {
+export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreate }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
@@ -154,8 +155,13 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs }) {
   if (!conversation) {
     return (
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column', gap: 2, color: 'text.secondary' }}>
-        <Typography variant="h6">Select or create a conversation</Typography>
-        <Typography variant="body2">{WELCOME}</Typography>
+        <Typography variant="h6">No conversation selected</Typography>
+        <Typography variant="body2" sx={{ textAlign: 'center', maxWidth: 400 }}>{WELCOME}</Typography>
+        {onCreate && (
+          <Button variant="contained" startIcon={<AddIcon />} onClick={onCreate}>
+            New chat
+          </Button>
+        )}
       </Box>
     );
   }

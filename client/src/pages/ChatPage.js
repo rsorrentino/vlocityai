@@ -101,6 +101,7 @@ export default function ChatPage() {
           conversation={activeConversation}
           orgs={orgs}
           onFirstMessage={handleFirstMessage}
+          onCreate={handleCreate}
         />
       </Box>
     </Box>
