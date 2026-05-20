@@ -45,7 +45,7 @@ npm run format
 - Real-time job updates are a separate subsystem. `server/services/jobMonitor.js` exposes `/ws/jobs`, broadcasts progress/log events, and batches job logs before flushing them to storage.
 - The React app is route- and permission-driven. `client/src/App.js` wires page routes, `client/src/components/ProtectedRoute.js` enforces auth/role/permission access, and `client/src/components/Sidebar.js` mirrors the same page groupings in a collapsible left nav.
 - `/api-docs`, `/api-docs.json`, and `/health` are intentionally server-handled routes. `client/src/App.js` forces a full-page navigation for those paths so React Router does not intercept them.
-- Chat is its own streaming subsystem. `server/routes/chat.js` handles conversation CRUD plus `POST /api/chat/message`; `server/services/chatService.js` persists conversations/messages and streams assistant output over SSE while invoking adapter/tool logic.
+- Chat is its own streaming subsystem. `server/routes/chat.js` handles conversation CRUD plus `POST /api/chat/message`; `server/services/chatService.js` persists conversations/messages and streams assistant output over SSE while invoking adapter/tool logic, while the client chat UI adds searchable history, mobile drawer access, starter prompts, and message actions.
 
 ## Key conventions
 

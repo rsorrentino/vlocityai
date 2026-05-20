@@ -57,9 +57,10 @@ API keys entered in the UI are held in `localStorage` and sent per-request — t
 
 #### UI layout
 
-- **Left pane**: conversation history grouped by date (Today / Yesterday / This week / Older) with rename and delete
-- **Right pane**: message thread with markdown rendering and collapsible tool-call chips, streaming input bar
-- **Top bar**: inline org selector + adapter/model settings gear icon
+- **History pane**: searchable conversation history grouped by date, with rename/delete and mobile drawer access
+- **Chat pane**: markdown message thread with collapsible tool-call chips, copy/reuse actions, timestamps, and streaming state
+- **Top bar**: inline org selector, adapter/model settings, status chips, and quick new-chat access
+- **Composer**: larger multi-line input with starter prompts, keyboard hints, and send/stop controls
 - The chat page auto-creates the first conversation on first open so users land in a ready-to-use chat instead of an empty placeholder state
 
 #### New files

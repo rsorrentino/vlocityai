@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Alert, Box, Button, CircularProgress } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Drawer, useMediaQuery, useTheme } from '@mui/material';
 import axios from 'axios';
 import ConversationList from '../components/chat/ConversationList';
 import ChatWindow from '../components/chat/ChatWindow';
@@ -12,6 +12,9 @@ export default function ChatPage() {
   const [orgs, setOrgs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   const activeConversation = conversations.find(c => c.id === activeId) || null;
 
@@ -101,6 +104,22 @@ export default function ChatPage() {
       .catch(() => {});
   }, []);
 
+  const handleSelectConversation = useCallback((id) => {
+    setActiveId(id);
+    setHistoryOpen(false);
+  }, []);
+
+  const historyPane = (
+    <ConversationList
+      conversations={conversations}
+      activeId={activeId}
+      onSelect={handleSelectConversation}
+      onCreate={handleCreate}
+      onDelete={handleDelete}
+      onRename={handleRename}
+    />
+  );
+
   if (loading) {
     return (
       <Box
@@ -168,14 +187,7 @@ export default function ChatPage() {
           flexDirection: 'column',
         }}
       >
-        <ConversationList
-          conversations={conversations}
-          activeId={activeId}
-          onSelect={setActiveId}
-          onCreate={handleCreate}
-          onDelete={handleDelete}
-          onRename={handleRename}
-        />
+        {historyPane}
       </Box>
 
       {/* Chat window pane */}
@@ -190,8 +202,26 @@ export default function ChatPage() {
           orgs={orgs}
           onFirstMessage={handleFirstMessage}
           onCreate={handleCreate}
+          onOpenConversations={() => setHistoryOpen(true)}
         />
       </Box>
+
+      {!isDesktop && (
+        <Drawer
+          anchor="left"
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': {
+              width: Math.min(CONV_LIST_WIDTH + 40, 320),
+              maxWidth: '85vw',
+            },
+          }}
+        >
+          {historyPane}
+        </Drawer>
+      )}
     </Box>
   );
 }

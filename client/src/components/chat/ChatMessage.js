@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Box, Typography, Collapse, Chip, Paper } from '@mui/material';
+import { Box, Typography, Collapse, Chip, Paper, IconButton, Tooltip } from '@mui/material';
 import {
   Person as PersonIcon,
   SmartToy as BotIcon,
   Build as ToolIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  ContentCopy as ContentCopyIcon,
+  Reply as ReplyIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 
@@ -50,8 +52,25 @@ function ToolCallChip({ toolEvent }) {
   );
 }
 
-export default function ChatMessage({ message }) {
+function formatTimestamp(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+export default function ChatMessage({ message, onCopy, onReuse }) {
   const isUser = message.role === 'user';
+  const timestamp = formatTimestamp(message.created_at);
 
   return (
     <Box
@@ -82,6 +101,37 @@ export default function ChatMessage({ message }) {
 
       {/* Bubble */}
       <Box sx={{ maxWidth: '80%', minWidth: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: isUser ? 'flex-end' : 'space-between',
+            gap: 1,
+            mb: 0.5,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary">
+            {isUser ? 'You' : 'Assistant'}{timestamp ? ` • ${timestamp}` : ''}
+          </Typography>
+
+          <Box sx={{ display: 'flex', gap: 0.25 }}>
+            {message.content && onCopy && (
+              <Tooltip title="Copy message">
+                <IconButton size="small" onClick={() => onCopy(message.content)}>
+                  <ContentCopyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+            {!isUser && message.content && onReuse && (
+              <Tooltip title="Reuse response as prompt">
+                <IconButton size="small" onClick={() => onReuse(message.content)}>
+                  <ReplyIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+        </Box>
+
         {/* Tool call events (for assistant messages) */}
         {!isUser && message.toolEvents?.map((ev, i) => (
           <ToolCallChip key={i} toolEvent={ev} />
@@ -137,18 +187,21 @@ export default function ChatMessage({ message }) {
 
         {/* Streaming cursor */}
         {message.streaming && (
-          <Box
-            component="span"
-            sx={{
-              display: 'inline-block',
-              width: 8,
-              height: 16,
-              bgcolor: 'text.primary',
-              ml: 0.5,
-              animation: 'blink 1s step-end infinite',
-              '@keyframes blink': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0 } },
-            }}
-          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75, mt: 0.75 }}>
+            <Box
+              component="span"
+              sx={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: 'text.primary',
+                animation: 'pulse 1s ease-in-out infinite',
+                '@keyframes pulse': { '0%, 100%': { opacity: 0.35 }, '50%': { opacity: 1 } },
+              }}
+            />
+            Thinking…
+          </Typography>
         )}
       </Box>
     </Box>

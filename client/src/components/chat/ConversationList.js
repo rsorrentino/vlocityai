@@ -16,12 +16,14 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  InputAdornment,
 } from '@mui/material';
 import {
   Add as AddIcon,
   MoreVert as MoreVertIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material';
 
 function groupByDate(conversations) {
@@ -48,6 +50,7 @@ export default function ConversationList({ conversations, activeId, onSelect, on
   const [menuConv, setMenuConv] = useState(null);
   const [renameDialog, setRenameDialog] = useState(false);
   const [renameValue, setRenameValue] = useState('');
+  const [searchValue, setSearchValue] = useState('');
 
   const handleMenuOpen = (e, conv) => {
     e.stopPropagation();
@@ -78,26 +81,59 @@ export default function ConversationList({ conversations, activeId, onSelect, on
     handleMenuClose();
   };
 
-  const groups = groupByDate(conversations);
+  const filteredConversations = conversations.filter((conversation) =>
+    conversation.title?.toLowerCase().includes(searchValue.trim().toLowerCase())
+  );
+  const groups = groupByDate(filteredConversations);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-      <Box sx={{ p: 1.5 }}>
+      <Box sx={{ p: 1.5, pb: 1 }}>
+        <Box sx={{ px: 0.5, pb: 1.5 }}>
+          <Typography variant="subtitle2" fontWeight={700}>
+            Chats
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Search, revisit, and manage previous conversations.
+          </Typography>
+        </Box>
         <Button
           fullWidth
           variant="outlined"
           startIcon={<AddIcon />}
           onClick={onCreate}
           size="small"
+          sx={{ mb: 1 }}
         >
           New chat
         </Button>
+
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Search chats"
+          value={searchValue}
+          onChange={(event) => setSearchValue(event.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" color="action" />
+              </InputAdornment>
+            ),
+          }}
+        />
       </Box>
 
       <Box sx={{ flexGrow: 1, overflowY: 'auto', pb: 1 }}>
         {conversations.length === 0 && (
           <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
             No conversations yet
+          </Typography>
+        )}
+
+        {conversations.length > 0 && filteredConversations.length === 0 && (
+          <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
+            No chats match your search.
           </Typography>
         )}
 
@@ -123,27 +159,39 @@ export default function ConversationList({ conversations, activeId, onSelect, on
                     }
                     sx={{ '&:hover .MuiIconButton-root': { opacity: 1 } }}
                   >
-                    <ListItemButton
-                      selected={conv.id === activeId}
-                      onClick={() => onSelect(conv.id)}
-                      sx={{
-                        borderRadius: 1,
-                        mx: 0.5,
-                        py: 0.6,
-                        pr: 4,
-                        '&.Mui-selected': {
-                          bgcolor: 'primary.main',
-                          color: 'primary.contrastText',
-                          '&:hover': { bgcolor: 'primary.dark' },
+                      <ListItemButton
+                        selected={conv.id === activeId}
+                        onClick={() => onSelect(conv.id)}
+                        sx={{
+                          borderRadius: 1,
+                          mx: 0.5,
+                          py: 0.8,
+                          pr: 4,
+                          '&.Mui-selected': {
+                            bgcolor: 'primary.main',
+                            color: 'primary.contrastText',
+                            '&:hover': { bgcolor: 'primary.dark' },
                         },
                       }}
-                    >
-                      <ListItemText
-                        primary={conv.title}
-                        primaryTypographyProps={{ fontSize: '0.82rem', noWrap: true }}
-                      />
-                    </ListItemButton>
-                  </ListItem>
+                      >
+                        <ListItemText
+                          primary={conv.title}
+                          secondary={new Date(conv.updated_at).toLocaleString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })}
+                          primaryTypographyProps={{ fontSize: '0.82rem', noWrap: true, fontWeight: 500 }}
+                          secondaryTypographyProps={{
+                            fontSize: '0.72rem',
+                            noWrap: true,
+                            color: conv.id === activeId ? 'inherit' : 'text.secondary',
+                            opacity: conv.id === activeId ? 0.9 : 1,
+                          }}
+                        />
+                      </ListItemButton>
+                    </ListItem>
                 ))}
               </List>
               <Divider sx={{ mt: 0.5 }} />
@@ -169,6 +217,7 @@ export default function ConversationList({ conversations, activeId, onSelect, on
           <TextField
             autoFocus
             fullWidth
+            label="Title"
             value={renameValue}
             onChange={e => setRenameValue(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleRenameConfirm()}
