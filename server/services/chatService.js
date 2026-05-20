@@ -1,3 +1,4 @@
+const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 const { runAnthropicStream } = require('./aiAdapters/anthropicAdapter');
@@ -44,17 +45,220 @@ Guidelines:
 // ── DB helpers ────────────────────────────────────────────────────────────────
 
 const schema = process.env.DB_SCHEMA || 'vlocity_datapack_manager';
+let ensureChatTablesPromise = null;
+
+function getDialect(db) {
+  return db.getDialect();
+}
+
+function getTableRef(db, tableName) {
+  return getDialect(db) === 'postgres' ? `${schema}.${tableName}` : tableName;
+}
+
+function getTableDefinition(db, tableName) {
+  return getDialect(db) === 'postgres'
+    ? { tableName, schema }
+    : { tableName };
+}
+
+function getIdType(db) {
+  return getDialect(db) === 'postgres' ? DataTypes.UUID : DataTypes.STRING;
+}
+
+function getJsonType(db) {
+  return getDialect(db) === 'postgres' ? DataTypes.JSONB : DataTypes.JSON;
+}
+
+function getTimestampDefault(db) {
+  return db.literal(getDialect(db) === 'postgres' ? 'NOW()' : 'CURRENT_TIMESTAMP');
+}
+
+function serializeJsonField(db, value) {
+  if (value == null) {
+    return null;
+  }
+
+  return getDialect(db) === 'postgres' ? value : JSON.stringify(value);
+}
+
+function parseJsonField(value) {
+  if (typeof value !== 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function normalizeMessageRow(row) {
+  return {
+    ...row,
+    tool_calls: parseJsonField(row.tool_calls),
+    tool_results: parseJsonField(row.tool_results),
+  };
+}
+
+async function ensureChatTables() {
+  const db = getDb();
+  if (!db) {
+    throw new Error('Database connection is not ready');
+  }
+
+  if (!ensureChatTablesPromise) {
+    ensureChatTablesPromise = (async () => {
+      const queryInterface = db.getQueryInterface();
+      const conversationsTable = getTableDefinition(db, 'chat_conversations');
+      const messagesTable = getTableDefinition(db, 'chat_messages');
+      const idType = getIdType(db);
+      const jsonType = getJsonType(db);
+      const timestampDefault = getTimestampDefault(db);
+
+      const ensureTable = async (table, createDefinition) => {
+        try {
+          await queryInterface.describeTable(table);
+        } catch {
+          await queryInterface.createTable(table, createDefinition);
+        }
+      };
+
+      await ensureTable(conversationsTable, {
+        id: {
+          type: idType,
+          allowNull: false,
+          primaryKey: true,
+        },
+        user_id: {
+          type: idType,
+          allowNull: false,
+        },
+        title: {
+          type: DataTypes.STRING,
+          allowNull: false,
+          defaultValue: 'New conversation',
+        },
+        org_username: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+        adapter: {
+          type: DataTypes.STRING,
+          allowNull: true,
+        },
+        created_at: {
+          type: DataTypes.DATE,
+          allowNull: false,
+          defaultValue: timestampDefault,
+        },
+        updated_at: {
+          type: DataTypes.DATE,
+          allowNull: false,
+          defaultValue: timestampDefault,
+        },
+      });
+
+      await ensureTable(messagesTable, {
+        id: {
+          type: idType,
+          allowNull: false,
+          primaryKey: true,
+        },
+        conversation_id: {
+          type: idType,
+          allowNull: false,
+          references: {
+            model: conversationsTable,
+            key: 'id',
+          },
+          onDelete: 'CASCADE',
+        },
+        role: {
+          type: DataTypes.STRING,
+          allowNull: false,
+        },
+        content: {
+          type: DataTypes.TEXT,
+          allowNull: false,
+          defaultValue: '',
+        },
+        tool_calls: {
+          type: jsonType,
+          allowNull: true,
+        },
+        tool_results: {
+          type: jsonType,
+          allowNull: true,
+        },
+        tokens_used: {
+          type: DataTypes.INTEGER,
+          allowNull: true,
+        },
+        created_at: {
+          type: DataTypes.DATE,
+          allowNull: false,
+          defaultValue: timestampDefault,
+        },
+      });
+
+      try {
+        const conversationDescription = await queryInterface.describeTable(conversationsTable);
+        const userIdType = String(conversationDescription.user_id?.type || '').toLowerCase();
+        if (userIdType.includes('int')) {
+          await queryInterface.changeColumn(conversationsTable, 'user_id', {
+            type: idType,
+            allowNull: false,
+          });
+        }
+      } catch (error) {
+        logger.warn('Unable to reconcile chat_conversations.user_id type', { error: error.message });
+      }
+
+      const safeAddIndex = async (table, fields, options) => {
+        try {
+          await queryInterface.addIndex(table, fields, options);
+        } catch (error) {
+          const message = error.message || '';
+          if (!message.includes('already exists') && !message.includes('duplicate')) {
+            throw error;
+          }
+        }
+      };
+
+      await safeAddIndex(conversationsTable, ['user_id'], {
+        name: 'idx_chat_conversations_user_id',
+      });
+
+      await safeAddIndex(messagesTable, ['conversation_id'], {
+        name: 'idx_chat_messages_conversation_id',
+      });
+    })().catch((error) => {
+      ensureChatTablesPromise = null;
+      throw error;
+    });
+  }
+
+  return ensureChatTablesPromise;
+}
 
 async function createConversation({ userId, orgUsername, adapter, title }) {
   const db = getDb();
+  await ensureChatTables();
+  const queryInterface = db.getQueryInterface();
   const id = uuidv4();
-  await db.query(
-    `INSERT INTO ${schema}.chat_conversations (id, user_id, title, org_username, adapter)
-     VALUES (:id, :userId, :title, :orgUsername, :adapter)`,
-    { replacements: { id, userId, title: title || 'New conversation', orgUsername: orgUsername || null, adapter: adapter || null } }
-  );
+  const now = new Date();
+  await queryInterface.bulkInsert(getTableDefinition(db, 'chat_conversations'), [{
+    id,
+    user_id: userId,
+    title: title || 'New conversation',
+    org_username: orgUsername || null,
+    adapter: adapter || null,
+    created_at: now,
+    updated_at: now,
+  }]);
   const [rows] = await db.query(
-    `SELECT * FROM ${schema}.chat_conversations WHERE id = :id`,
+    `SELECT * FROM ${getTableRef(db, 'chat_conversations')} WHERE id = :id`,
     { replacements: { id } }
   );
   return rows[0];
@@ -62,8 +266,9 @@ async function createConversation({ userId, orgUsername, adapter, title }) {
 
 async function listConversations(userId) {
   const db = getDb();
+  await ensureChatTables();
   const [rows] = await db.query(
-    `SELECT * FROM ${schema}.chat_conversations WHERE user_id = :userId ORDER BY updated_at DESC`,
+    `SELECT * FROM ${getTableRef(db, 'chat_conversations')} WHERE user_id = :userId ORDER BY updated_at DESC`,
     { replacements: { userId } }
   );
   return rows;
@@ -71,62 +276,63 @@ async function listConversations(userId) {
 
 async function getConversationWithMessages(id, userId) {
   const db = getDb();
+  await ensureChatTables();
   const [convRows] = await db.query(
-    `SELECT * FROM ${schema}.chat_conversations WHERE id = :id AND user_id = :userId`,
+    `SELECT * FROM ${getTableRef(db, 'chat_conversations')} WHERE id = :id AND user_id = :userId`,
     { replacements: { id, userId } }
   );
   if (!convRows[0]) return null;
 
   const [msgRows] = await db.query(
-    `SELECT * FROM ${schema}.chat_messages WHERE conversation_id = :id ORDER BY created_at ASC`,
+    `SELECT * FROM ${getTableRef(db, 'chat_messages')} WHERE conversation_id = :id ORDER BY created_at ASC`,
     { replacements: { id } }
   );
-  return { ...convRows[0], messages: msgRows };
+  return { ...convRows[0], messages: msgRows.map(normalizeMessageRow) };
 }
 
 async function deleteConversation(id, userId) {
   const db = getDb();
-  const [result] = await db.query(
-    `DELETE FROM ${schema}.chat_conversations WHERE id = :id AND user_id = :userId`,
-    { replacements: { id, userId } }
+  await ensureChatTables();
+  return db.getQueryInterface().bulkDelete(
+    getTableDefinition(db, 'chat_conversations'),
+    { id, user_id: userId }
   );
-  return result;
 }
 
 async function updateConversationTitle(id, userId, title) {
   const db = getDb();
-  await db.query(
-    `UPDATE ${schema}.chat_conversations SET title = :title, updated_at = NOW() WHERE id = :id AND user_id = :userId`,
-    { replacements: { id, userId, title } }
+  await ensureChatTables();
+  await db.getQueryInterface().bulkUpdate(
+    getTableDefinition(db, 'chat_conversations'),
+    { title, updated_at: new Date() },
+    { id, user_id: userId }
   );
 }
 
 async function saveMessage({ conversationId, role, content, toolCalls, toolResults, tokensUsed }) {
   const db = getDb();
+  await ensureChatTables();
   const id = uuidv4();
-  await db.query(
-    `INSERT INTO ${schema}.chat_messages (id, conversation_id, role, content, tool_calls, tool_results, tokens_used)
-     VALUES (:id, :conversationId, :role, :content, :toolCalls::jsonb, :toolResults::jsonb, :tokensUsed)`,
-    {
-      replacements: {
-        id,
-        conversationId,
-        role,
-        content,
-        toolCalls: toolCalls ? JSON.stringify(toolCalls) : null,
-        toolResults: toolResults ? JSON.stringify(toolResults) : null,
-        tokensUsed: tokensUsed || null,
-      },
-    }
-  );
+  await db.getQueryInterface().bulkInsert(getTableDefinition(db, 'chat_messages'), [{
+    id,
+    conversation_id: conversationId,
+    role,
+    content,
+    tool_calls: serializeJsonField(db, toolCalls),
+    tool_results: serializeJsonField(db, toolResults),
+    tokens_used: tokensUsed || null,
+    created_at: new Date(),
+  }]);
   return id;
 }
 
 async function touchConversation(id) {
   const db = getDb();
-  await db.query(
-    `UPDATE ${schema}.chat_conversations SET updated_at = NOW() WHERE id = :id`,
-    { replacements: { id } }
+  await ensureChatTables();
+  await db.getQueryInterface().bulkUpdate(
+    getTableDefinition(db, 'chat_conversations'),
+    { updated_at: new Date() },
+    { id }
   );
 }
 

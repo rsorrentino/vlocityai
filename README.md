@@ -60,6 +60,7 @@ API keys entered in the UI are held in `localStorage` and sent per-request — t
 - **Left pane**: conversation history grouped by date (Today / Yesterday / This week / Older) with rename and delete
 - **Right pane**: message thread with markdown rendering and collapsible tool-call chips, streaming input bar
 - **Top bar**: inline org selector + adapter/model settings gear icon
+- The chat page auto-creates the first conversation on first open so users land in a ready-to-use chat instead of an empty placeholder state
 
 #### New files
 
@@ -96,6 +97,8 @@ OLLAMA_BASE_URL=http://localhost:11434
 ---
 
 ### Left Sidebar Navigation — Desktop Persistent, Mobile Drawer
+
+The sidebar is now **collapsible on desktop** as well: the hamburger in the top bar toggles between a full left nav (**icons + labels**) and a compact rail (**icons only**). On mobile/tablet it still opens as an overlay drawer.
 
 The navigation has been moved from the crowded top bar into a **permanent left sidebar** on desktop and a **temporary slide-in drawer** on mobile/tablet triggered by the hamburger icon.
 

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Box, Container } from '@mui/material';
+import { Box, Container, useMediaQuery, useTheme } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
@@ -35,10 +35,22 @@ import ServiceCreationPage from './pages/ServiceCreationPage';
 import ChatPage from './pages/ChatPage';
 import ScrollToTop from './components/ScrollToTop';
 
+const SIDEBAR_EXPANDED_STORAGE_KEY = 'vlocity-sidebar-expanded';
+
 function AppContent() {
   const { isAuthenticated, loading, login, user } = useAuth();
   const location = useLocation();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [desktopSidebarExpanded, setDesktopSidebarExpanded] = useState(() => {
+    if (typeof window === 'undefined') {
+      return true;
+    }
+
+    const storedValue = window.localStorage.getItem(SIDEBAR_EXPANDED_STORAGE_KEY);
+    return storedValue === null ? true : storedValue === 'true';
+  });
 
   // Exclude server-side routes from React Router handling
   // These routes are handled by the Express server, not React Router
@@ -59,6 +71,25 @@ function AppContent() {
       return () => clearTimeout(timeoutId);
     }
   }, [isServerRoute, location.pathname, location.search, location.hash]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(SIDEBAR_EXPANDED_STORAGE_KEY, String(desktopSidebarExpanded));
+    }
+  }, [desktopSidebarExpanded]);
+
+  const handleToggleSidebar = () => {
+    if (isDesktop) {
+      setDesktopSidebarExpanded((prev) => !prev);
+      return;
+    }
+
+    setMobileSidebarOpen((prev) => !prev);
+  };
+
+  const handleCloseMobileSidebar = () => {
+    setMobileSidebarOpen(false);
+  };
 
   // Show loading state while checking authentication
   if (loading) {
@@ -101,9 +132,16 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+        <Sidebar
+          open={mobileSidebarOpen}
+          expanded={desktopSidebarExpanded}
+          onClose={handleCloseMobileSidebar}
+        />
         <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
-          <Navbar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
+          <Navbar
+            onToggleSidebar={handleToggleSidebar}
+            sidebarExpanded={isDesktop ? desktopSidebarExpanded : mobileSidebarOpen}
+          />
           <Box component="main" sx={{ flexGrow: 1, py: 3, overflow: 'auto' }}>
           <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
           <ErrorBoundary>

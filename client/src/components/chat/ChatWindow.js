@@ -5,7 +5,6 @@ import {
   TextField,
   IconButton,
   Typography,
-  CircularProgress,
   Tooltip,
 } from '@mui/material';
 import { Add as AddIcon, Send as SendIcon, StopCircle as StopIcon } from '@mui/icons-material';
@@ -22,16 +21,16 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
   const [streaming, setStreaming] = useState(false);
   const [adapterConfig, setAdapterConfig] = useAdapterConfig();
   const bottomRef = useRef(null);
-  const abortRef = useRef(null);
   const readerRef = useRef(null);
+  const conversationId = conversation?.id;
 
   // Load messages when conversation changes
   useEffect(() => {
-    if (!conversation) { setMessages([]); return; }
-    axios.get(`/api/chat/conversations/${conversation.id}`)
+    if (!conversationId) { setMessages([]); return; }
+    axios.get(`/api/chat/conversations/${conversationId}`)
       .then(r => setMessages(r.data.conversation.messages || []))
       .catch(() => setMessages([]));
-  }, [conversation?.id]);
+  }, [conversationId]);
 
   // Scroll to bottom on new messages
   useEffect(() => {

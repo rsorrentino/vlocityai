@@ -13,6 +13,7 @@ import {
 } from '@mui/material';
 import {
   Menu as MenuIcon,
+  MenuOpen as MenuOpenIcon,
   Logout,
   Lock,
 } from '@mui/icons-material';
@@ -20,7 +21,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import NotificationCenter from './NotificationCenter';
 
-const Navbar = ({ onToggleSidebar }) => {
+const Navbar = ({ onToggleSidebar, sidebarExpanded }) => {
   const { user, logout } = useAuth();
   const [userMenuAnchor, setUserMenuAnchor] = React.useState(null);
 
@@ -60,16 +61,16 @@ const Navbar = ({ onToggleSidebar }) => {
           minHeight: { xs: 56, sm: 64 },
         }}
       >
-        {/* Hamburger — mobile/tablet only, toggles the sidebar drawer */}
+        {/* Hamburger — toggles the left navigation open/collapsed state */}
         <IconButton
           size="large"
           edge="start"
-          aria-label="open navigation"
+          aria-label={sidebarExpanded ? 'collapse navigation' : 'open navigation'}
           onClick={onToggleSidebar}
           color="primary"
-          sx={{ mr: 1, display: { xs: 'flex', md: 'none' } }}
+          sx={{ mr: 1 }}
         >
-          <MenuIcon />
+          {sidebarExpanded ? <MenuOpenIcon /> : <MenuIcon />}
         </IconButton>
 
         {/* Logo + app name */}

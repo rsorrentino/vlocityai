@@ -43,13 +43,14 @@ npm run format
 - Persistence is centralized in `server/services/databaseService.js`. PostgreSQL in schema `vlocity_datapack_manager` is the primary target; `data/vlocity_manager.db` is the fallback. `server/models/index.js` defines the Sequelize models once, and `databaseService.syncModels()` rebinds them to the active connection.
 - Long-running Salesforce/Vlocity work should go through the queueing layer, not ad hoc `spawn()` calls. `server/services/vlocityService.js` and `server/services/sfCliService.js` enqueue executions through `server/services/jobExecutionService.js`, which caps concurrency and supports aborting queued or running jobs.
 - Real-time job updates are a separate subsystem. `server/services/jobMonitor.js` exposes `/ws/jobs`, broadcasts progress/log events, and batches job logs before flushing them to storage.
-- The React app is route- and permission-driven. `client/src/App.js` wires page routes, `client/src/components/ProtectedRoute.js` enforces auth/role/permission access, and `client/src/components/Sidebar.js` mirrors the same page groupings in navigation.
+- The React app is route- and permission-driven. `client/src/App.js` wires page routes, `client/src/components/ProtectedRoute.js` enforces auth/role/permission access, and `client/src/components/Sidebar.js` mirrors the same page groupings in a collapsible left nav.
 - `/api-docs`, `/api-docs.json`, and `/health` are intentionally server-handled routes. `client/src/App.js` forces a full-page navigation for those paths so React Router does not intercept them.
 - Chat is its own streaming subsystem. `server/routes/chat.js` handles conversation CRUD plus `POST /api/chat/message`; `server/services/chatService.js` persists conversations/messages and streams assistant output over SSE while invoking adapter/tool logic.
 
 ## Key conventions
 
 - Playwright MCP is preconfigured for the repo: VS Code reads `.vscode/mcp.json`, and Copilot CLI project sessions can use `.github/mcp.json`.
+- Chat storage must stay dialect-safe. `server/services/chatService.js` has to work with both PostgreSQL and the SQLite fallback, so avoid PostgreSQL-only SQL there.
 - Client auth is cookie-based, not localStorage-token-based. `client/src/contexts/AuthContext.js` sets `axios.defaults.withCredentials = true`, calls relative `/api/...` endpoints, and expects the JWT in the `auth_token` httpOnly cookie.
 - When adding protected UI, keep `App.js`, `ProtectedRoute`, and `Sidebar.js` in sync. New pages usually need both client-side gating and matching server middleware such as `authenticate`, `adminOnly`, or `requirePermission`.
 - On the server, prefer `asyncHandler` and the shared error types from `server/middleware/errorHandler.js` instead of route-local promise wrappers. Throw `ValidationError`, `UnauthorizedError`, etc., and let the shared error middleware shape the response.

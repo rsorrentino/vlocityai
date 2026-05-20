@@ -2,40 +2,120 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.sequelize.query(`
-      CREATE TABLE IF NOT EXISTS vlocity_datapack_manager.chat_conversations (
-        id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        user_id      INTEGER NOT NULL,
-        title        VARCHAR(255) NOT NULL DEFAULT 'New conversation',
-        org_username VARCHAR(255),
-        adapter      VARCHAR(50),
-        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    const schema = process.env.DB_SCHEMA || 'vlocity_datapack_manager';
+    const dialect = queryInterface.sequelize.getDialect();
+    const idType = dialect === 'postgres' ? Sequelize.UUID : Sequelize.STRING;
+    const jsonType = dialect === 'postgres' ? Sequelize.JSONB : Sequelize.JSON;
+    const timestampDefault = queryInterface.sequelize.literal(
+      dialect === 'postgres' ? 'NOW()' : 'CURRENT_TIMESTAMP'
+    );
 
-      CREATE INDEX IF NOT EXISTS idx_chat_conversations_user_id
-        ON vlocity_datapack_manager.chat_conversations(user_id);
+    const conversationsTable = dialect === 'postgres'
+      ? { tableName: 'chat_conversations', schema }
+      : { tableName: 'chat_conversations' };
 
-      CREATE TABLE IF NOT EXISTS vlocity_datapack_manager.chat_messages (
-        id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        conversation_id UUID NOT NULL REFERENCES vlocity_datapack_manager.chat_conversations(id) ON DELETE CASCADE,
-        role            VARCHAR(20) NOT NULL,
-        content         TEXT NOT NULL DEFAULT '',
-        tool_calls      JSONB,
-        tool_results    JSONB,
-        tokens_used     INTEGER,
-        created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+    const messagesTable = dialect === 'postgres'
+      ? { tableName: 'chat_messages', schema }
+      : { tableName: 'chat_messages' };
 
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation_id
-        ON vlocity_datapack_manager.chat_messages(conversation_id);
-    `);
+    await queryInterface.createTable(conversationsTable, {
+      id: {
+        type: idType,
+        allowNull: false,
+        primaryKey: true,
+      },
+      user_id: {
+        type: idType,
+        allowNull: false,
+      },
+      title: {
+        type: Sequelize.STRING,
+        allowNull: false,
+        defaultValue: 'New conversation',
+      },
+      org_username: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      adapter: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      created_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: timestampDefault,
+      },
+      updated_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: timestampDefault,
+      },
+    });
+
+    await queryInterface.addIndex(conversationsTable, ['user_id'], {
+      name: 'idx_chat_conversations_user_id',
+    });
+
+    await queryInterface.createTable(messagesTable, {
+      id: {
+        type: idType,
+        allowNull: false,
+        primaryKey: true,
+      },
+      conversation_id: {
+        type: idType,
+        allowNull: false,
+        references: {
+          model: conversationsTable,
+          key: 'id',
+        },
+        onDelete: 'CASCADE',
+      },
+      role: {
+        type: Sequelize.STRING,
+        allowNull: false,
+      },
+      content: {
+        type: Sequelize.TEXT,
+        allowNull: false,
+        defaultValue: '',
+      },
+      tool_calls: {
+        type: jsonType,
+        allowNull: true,
+      },
+      tool_results: {
+        type: jsonType,
+        allowNull: true,
+      },
+      tokens_used: {
+        type: Sequelize.INTEGER,
+        allowNull: true,
+      },
+      created_at: {
+        type: Sequelize.DATE,
+        allowNull: false,
+        defaultValue: timestampDefault,
+      },
+    });
+
+    await queryInterface.addIndex(messagesTable, ['conversation_id'], {
+      name: 'idx_chat_messages_conversation_id',
+    });
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.sequelize.query(`
-      DROP TABLE IF EXISTS vlocity_datapack_manager.chat_messages;
-      DROP TABLE IF EXISTS vlocity_datapack_manager.chat_conversations;
-    `);
+    const schema = process.env.DB_SCHEMA || 'vlocity_datapack_manager';
+    const dialect = queryInterface.sequelize.getDialect();
+    const conversationsTable = dialect === 'postgres'
+      ? { tableName: 'chat_conversations', schema }
+      : { tableName: 'chat_conversations' };
+    const messagesTable = dialect === 'postgres'
+      ? { tableName: 'chat_messages', schema }
+      : { tableName: 'chat_messages' };
+
+    await queryInterface.dropTable(messagesTable);
+    await queryInterface.dropTable(conversationsTable);
   },
 };

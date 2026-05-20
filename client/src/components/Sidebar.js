@@ -10,6 +10,9 @@ import {
   Toolbar,
   Typography,
   Divider,
+  Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import {
   CloudUpload,
@@ -35,6 +38,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 export const DRAWER_WIDTH = 240;
+export const COLLAPSED_DRAWER_WIDTH = 72;
 
 const navigationGroups = [
   {
@@ -127,10 +131,13 @@ const permissionFilter = (item, hasPermission) => {
   }
 };
 
-const Sidebar = ({ open, onClose }) => {
+const Sidebar = ({ open, expanded, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { hasPermission } = useAuth();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+  const showLabels = !isDesktop || expanded;
 
   const filteredGroups = navigationGroups
     .map((group) => ({
@@ -145,7 +152,10 @@ const Sidebar = ({ open, onClose }) => {
     } else {
       navigate(item.path);
     }
-    onClose();
+
+    if (!isDesktop) {
+      onClose();
+    }
   };
 
   const drawerContent = (
@@ -157,22 +167,24 @@ const Sidebar = ({ open, onClose }) => {
         {filteredGroups.map((group, index) => (
           <React.Fragment key={group.label}>
             {index > 0 && <Divider sx={{ my: 0.5, mx: 1 }} />}
-            <Typography
-              variant="caption"
-              sx={{
-                px: 2,
-                pt: index === 0 ? 1.5 : 1,
-                pb: 0.5,
-                display: 'block',
-                color: 'text.disabled',
-                fontWeight: 700,
-                letterSpacing: '0.08em',
-                textTransform: 'uppercase',
-                fontSize: '0.65rem',
-              }}
-            >
-              {group.label}
-            </Typography>
+            {showLabels && (
+              <Typography
+                variant="caption"
+                sx={{
+                  px: 2,
+                  pt: index === 0 ? 1.5 : 1,
+                  pb: 0.5,
+                  display: 'block',
+                  color: 'text.disabled',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  fontSize: '0.65rem',
+                }}
+              >
+                {group.label}
+              </Typography>
+            )}
 
             <List dense disablePadding>
               {group.items.map((item) => {
@@ -184,30 +196,42 @@ const Sidebar = ({ open, onClose }) => {
 
                 return (
                   <ListItem key={item.path} disablePadding>
-                    <ListItemButton
-                      selected={isActive}
-                      onClick={() => handleNavigate(item)}
-                      sx={{
-                        px: 2,
-                        py: 0.65,
-                        mx: 0.5,
-                        borderRadius: 1,
-                        '&.Mui-selected': {
-                          bgcolor: 'primary.main',
-                          color: 'primary.contrastText',
-                          '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
-                          '&:hover': { bgcolor: 'primary.dark' },
-                        },
-                      }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 30, color: 'text.secondary' }}>
-                        {item.icon}
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{ fontSize: '0.85rem' }}
-                      />
-                    </ListItemButton>
+                    <Tooltip title={showLabels ? '' : item.label} placement="right">
+                      <ListItemButton
+                        selected={isActive}
+                        onClick={() => handleNavigate(item)}
+                        sx={{
+                          px: showLabels ? 2 : 1.25,
+                          py: 0.8,
+                          mx: 0.5,
+                          borderRadius: 1,
+                          justifyContent: showLabels ? 'flex-start' : 'center',
+                          '&.Mui-selected': {
+                            bgcolor: 'primary.main',
+                            color: 'primary.contrastText',
+                            '& .MuiListItemIcon-root': { color: 'primary.contrastText' },
+                            '&:hover': { bgcolor: 'primary.dark' },
+                          },
+                        }}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: showLabels ? 30 : 'auto',
+                            mr: showLabels ? 1.25 : 0,
+                            color: 'text.secondary',
+                            justifyContent: 'center',
+                          }}
+                        >
+                          {item.icon}
+                        </ListItemIcon>
+                        {showLabels && (
+                          <ListItemText
+                            primary={item.label}
+                            primaryTypographyProps={{ fontSize: '0.85rem' }}
+                          />
+                        )}
+                      </ListItemButton>
+                    </Tooltip>
                   </ListItem>
                 );
               })}
@@ -220,14 +244,22 @@ const Sidebar = ({ open, onClose }) => {
 
   const paperSx = {
     boxSizing: 'border-box',
-    width: DRAWER_WIDTH,
+    width: showLabels ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH,
     backgroundColor: 'background.paper',
     borderRight: '1px solid',
     borderColor: 'divider',
+    overflowX: 'hidden',
+    transition: theme.transitions.create('width', {
+      easing: theme.transitions.easing.sharp,
+      duration: theme.transitions.duration.enteringScreen,
+    }),
   };
 
   return (
-    <Box component="nav" sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}>
+    <Box
+      component="nav"
+      sx={{ width: { md: showLabels ? DRAWER_WIDTH : COLLAPSED_DRAWER_WIDTH }, flexShrink: { md: 0 } }}
+    >
       {/* Mobile — temporary, toggled by hamburger */}
       <Drawer
         variant="temporary"
@@ -249,7 +281,7 @@ const Sidebar = ({ open, onClose }) => {
           display: { xs: 'none', md: 'block' },
           '& .MuiDrawer-paper': paperSx,
         }}
-        open
+        open={expanded}
       >
         {drawerContent}
       </Drawer>
