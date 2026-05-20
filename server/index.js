@@ -457,7 +457,12 @@ const startServer = (port) => {
 
     // Create default users
     const authService = require('./services/authService');
-    await authService.createDefaultUsers();
+    try {
+      await authService.createDefaultUsers();
+    } catch (error) {
+      logger.logError(error, { operation: 'createDefaultUsers' });
+      logger.warn('⚠️ Default users could not be created. Login may fail until the database is available.');
+    }
 
     // Migrate orgs from environments.properties on first startup
     const orgService = require('./services/orgService');
