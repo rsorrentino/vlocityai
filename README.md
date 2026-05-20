@@ -110,6 +110,8 @@ The navigation has been moved from the crowded top bar into a **permanent left s
 | **md+ (≥ 900 px)** | Permanent 240 px sidebar always visible; page content shifts right automatically |
 | **xs / sm (< 900 px)** | Sidebar hidden; hamburger button (☰) in top bar opens a temporary overlay drawer |
 
+The shared app shell is constrained to the viewport height and keeps page scrolling inside the main content pane, which prevents the top bar from overlapping page content.
+
 New file: `client/src/components/Sidebar.js`.
 
 #### Top bar — slimmed down

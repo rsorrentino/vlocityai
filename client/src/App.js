@@ -131,160 +131,184 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Box
+        sx={{
+          display: 'flex',
+          minHeight: '100vh',
+          height: '100vh',
+          overflow: 'hidden',
+        }}
+      >
         <Sidebar
           open={mobileSidebarOpen}
           expanded={desktopSidebarExpanded}
           onClose={handleCloseMobileSidebar}
         />
-        <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, minWidth: 0 }}>
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            flexGrow: 1,
+            minWidth: 0,
+            minHeight: 0,
+          }}
+        >
           <Navbar
             onToggleSidebar={handleToggleSidebar}
             sidebarExpanded={isDesktop ? desktopSidebarExpanded : mobileSidebarOpen}
           />
-          <Box component="main" sx={{ flexGrow: 1, py: 3, overflow: 'auto' }}>
-          <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
-          <ErrorBoundary>
-            <ScrollToTop />
-            <Routes>
-              <Route path="/login" element={<Navigate to="/" replace />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/exports" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <ExportJobs />
-                </ProtectedRoute>
-              } />
-              <Route path="/deploys" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <DeployJobs />
-                </ProtectedRoute>
-              } />
-              <Route path="/orgs" element={
-                <ProtectedRoute requiredPermission={{ resource: 'orgs', action: 'read' }}>
-                  <OrgManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="/vlocity-commands" element={
-                <ProtectedRoute requiredRole={['admin', 'developer']}>
-                  <VlocityCommands />
-                </ProtectedRoute>
-              } />
-              <Route path="/history" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <JobHistory />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute requiredRole="admin">
-                  <Settings />
-                </ProtectedRoute>
-              } />
-              <Route path="/users" element={
-                <ProtectedRoute requiredRole="admin">
-                  <UserManagement />
-                </ProtectedRoute>
-              } />
-              <Route path="/audit" element={
-                <ProtectedRoute requiredRole="admin">
-                  <AuditLogs />
-                </ProtectedRoute>
-              } />
-              <Route path="/yaml" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <YamlConfigManager />
-                </ProtectedRoute>
-              } />
-              <Route path="/monitor" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <RealTimeJobMonitor />
-                </ProtectedRoute>
-              } />
-              <Route path="/jobs/:jobType/:jobId" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <JobDetails />
-                </ProtectedRoute>
-              } />
-              <Route path="/jobs/:jobType/:jobId/report" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <JobReport />
-                </ProtectedRoute>
-              } />
-              <Route path="/tester" element={
-                <ProtectedRoute requiredRole={['admin', 'developer']}>
-                  <ConfigTester />
-                </ProtectedRoute>
-              } />
-              <Route path="/catalog" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <CatalogManager />
-                </ProtectedRoute>
-              } />
-              <Route path="/catalog/:objectType/:id" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <CatalogRecordPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/sfdmu" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <SfdmuPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/sfdmu/config/new" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <SfdmuConfigPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/sfdmu/config/:configId" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <SfdmuConfigPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/pricing"            element={<Navigate to="/catalog" replace />} />
-              <Route path="/pricing/*"          element={<Navigate to="/catalog" replace />} />
-              <Route path="/enhanced-pricing"   element={<Navigate to="/catalog" replace />} />
-              <Route path="/enhanced-pricing/*" element={<Navigate to="/catalog" replace />} />
-              <Route path="/env-comparison" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <EnvComparisonPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/validation" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <ValidationDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/export-health" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <ExportHealthPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/pipeline" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <DeploymentPipeline />
-                </ProtectedRoute>
-              } />
-              <Route path="/pipeline/:pipelineId" element={
-                <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
-                  <PipelineDetails />
-                </ProtectedRoute>
-              } />
-              <Route path="/service-creation" element={
-                <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
-                  <ServiceCreationPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/chat" element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              } />
-            </Routes>
-            </ErrorBoundary>
-          </Container>
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              minHeight: 0,
+              py: 3,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+            }}
+          >
+            <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
+              <ErrorBoundary>
+                <ScrollToTop />
+                <Routes>
+                  <Route path="/login" element={<Navigate to="/" replace />} />
+                  <Route path="/" element={
+                    <ProtectedRoute>
+                      <Dashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/exports" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <ExportJobs />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/deploys" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <DeployJobs />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/orgs" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'orgs', action: 'read' }}>
+                      <OrgManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/vlocity-commands" element={
+                    <ProtectedRoute requiredRole={['admin', 'developer']}>
+                      <VlocityCommands />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/history" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <JobHistory />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/settings" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <Settings />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/users" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <UserManagement />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/audit" element={
+                    <ProtectedRoute requiredRole="admin">
+                      <AuditLogs />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/yaml" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <YamlConfigManager />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/monitor" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <RealTimeJobMonitor />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/jobs/:jobType/:jobId" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <JobDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/jobs/:jobType/:jobId/report" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <JobReport />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/tester" element={
+                    <ProtectedRoute requiredRole={['admin', 'developer']}>
+                      <ConfigTester />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/catalog" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <CatalogManager />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/catalog/:objectType/:id" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <CatalogRecordPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/sfdmu" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <SfdmuPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/sfdmu/config/new" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <SfdmuConfigPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/sfdmu/config/:configId" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <SfdmuConfigPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/pricing"            element={<Navigate to="/catalog" replace />} />
+                  <Route path="/pricing/*"          element={<Navigate to="/catalog" replace />} />
+                  <Route path="/enhanced-pricing"   element={<Navigate to="/catalog" replace />} />
+                  <Route path="/enhanced-pricing/*" element={<Navigate to="/catalog" replace />} />
+                  <Route path="/env-comparison" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <EnvComparisonPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/validation" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <ValidationDashboard />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/export-health" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <ExportHealthPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/pipeline" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <DeploymentPipeline />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/pipeline/:pipelineId" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'jobs', action: 'read' }}>
+                      <PipelineDetails />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/service-creation" element={
+                    <ProtectedRoute requiredPermission={{ resource: 'configs', action: 'read' }}>
+                      <ServiceCreationPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/chat" element={
+                    <ProtectedRoute>
+                      <ChatPage />
+                    </ProtectedRoute>
+                  } />
+                </Routes>
+              </ErrorBoundary>
+            </Container>
           </Box>
         </Box>
       </Box>
