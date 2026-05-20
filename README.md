@@ -1103,6 +1103,8 @@ npm run migrate-sfdmu-type       # Add 'sfdmu' to PostgreSQL job type enum (run 
 
 ## ⚙️ Configuration
 
+Repository-specific GitHub Copilot guidance lives in `.github/copilot-instructions.md`.
+
 ### **Environment Variables (.env)**
 
 ```env
