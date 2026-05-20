@@ -153,7 +153,7 @@ class DatabaseService {
       //
       // Models are defined on a temporary connection in models/index.js at
       // module-load time (before databaseService.connect() is called). The
-      // rebind below updates each model's internal _sequelize reference and
+      // rebind below updates each model's sequelize reference and
       // registers it with this instance's ModelManager, ensuring consistent
       // behaviour regardless of whether we are using PostgreSQL or the SQLite
       // fallback.
@@ -167,13 +167,13 @@ class DatabaseService {
       ];
 
       for (const model of modelClasses) {
-        if (model && model._sequelize !== this.sequelize) {
-          // NOTE: `_sequelize` is a Sequelize internal property (Sequelize 6).
-          // There is no public API to rebind an already-defined model to a
-          // different Sequelize instance, so we update the private property
-          // directly. This is tracked as technical debt; if Sequelize adds a
-          // supported rebind method in a future version, this should be updated.
-          model._sequelize = this.sequelize;
+        if (model && model.sequelize !== this.sequelize) {
+          // Rebind the model to the active Sequelize instance.
+          // In Sequelize 6 the sequelize reference is stored as a plain writable
+          // own property (`model.sequelize`), NOT as `model._sequelize`.
+          // We update it directly here because there is no public API to rebind
+          // an already-defined model to a different Sequelize instance.
+          model.sequelize = this.sequelize;
           this.sequelize.modelManager.addModel(model);
         }
       }
