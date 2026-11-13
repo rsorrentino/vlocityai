@@ -3,7 +3,7 @@
  * Orchestrates CLI execution with validation, logging, error handling, and result parsing
  */
 
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const commandValidator = require('./commandValidator');
 const structuredLogger = require('./structuredLogger');
 const cliResultParser = require('./cliResultParser');
@@ -298,7 +298,6 @@ class EnhancedCLIExecutor {
       let stderr = '';
 
       const child = spawn(command, args, {
-        shell: true,
         env: process.env,
       });
 

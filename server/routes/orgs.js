@@ -661,7 +661,7 @@ router.delete('/:username', asyncHandler(async (req, res) => {
 router.get('/:username/info', asyncHandler(async (req, res) => {
   const { username } = req.params;
   try {
-    const { spawn } = require('child_process');
+    const { spawnSafe: spawn } = require('../utils/processRunner');
     const result = await new Promise((resolve, reject) => {
       const child = spawn('sfdx', ['force:org:display', '-u', username, '--json'], { stdio: ['pipe', 'pipe', 'pipe'] });
       let stdout = '';

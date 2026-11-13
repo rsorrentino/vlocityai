@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe, runCommand, commandAvailable, formatCommand } = require('../utils/processRunner');
 const fs = require('fs-extra');
 const path = require('path');
 const yaml = require('yaml');
@@ -37,18 +37,20 @@ class VlocityService {
     // Validate and get version info
     const versionInfo = await vlocityVersionService.validateJobVersion(version, jobId);
     const vlocityCommand = versionInfo.command;
+    const [vlocityExecutable, ...vlocityPrefixArgs] = versionInfo.commandParts
+      || vlocityVersionService.getVersionCommandParts(versionInfo.version);
 
     const startTime = Date.now();
     const args = [];
 
     if (username) {
-      args.push('-sfdx.username', `"${username}"`);
+      args.push('-sfdx.username', username);
     }
 
     if (jobFile) {
       // Convert absolute path to relative path for Vlocity CLI
       const relativePath = path.relative(process.cwd(), jobFile).replace(/\\/g, '/');
-      args.push('-job', `"${relativePath}"`);
+      args.push('-job', relativePath);
       
       // Log file operation
       if (jobId) {
@@ -61,8 +63,12 @@ class VlocityService {
 
     // Add extra arguments
     Object.entries(extraArgs).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        args.push(key, value);
+      if (value === undefined || value === null) return;
+      // Flag-style options (value '') must not produce an empty argv entry
+      if (value === '' || value === true) {
+        args.push(key);
+      } else {
+        args.push(key, String(value));
       }
     });
 
@@ -88,8 +94,9 @@ class VlocityService {
       const isAborted = controls.isAborted || (() => false);
       const getAbortReason = controls.getAbortReason || (() => 'Aborted by user');
 
-      // Use versioned vlocity command with shell for better Windows compatibility
-      const commandString = `${vlocityCommand} ${args.join(' ')}`;
+      // Build an argv array (no shell) – cross-spawn resolves .cmd shims on Windows
+      const fullArgs = [...vlocityPrefixArgs, ...args.map(a => String(a))];
+      const commandString = formatCommand(vlocityExecutable, fullArgs);
       
       // Set environment variables for Vlocity CLI
       const env = { ...process.env };
@@ -116,12 +123,10 @@ class VlocityService {
         });
       }
       
-      const child = spawn(commandString, [], {
+      const child = spawnSafe(vlocityExecutable, fullArgs, {
         cwd: process.cwd(),
         stdio: ['pipe', 'pipe', 'pipe'],
         timeout: this.timeout,
-        shell: true, // Use shell on Windows to handle .cmd files
-        windowsHide: true, // Hide Windows command window
         env: env, // Pass environment variables
       });
       setProcess(child);
@@ -759,31 +764,9 @@ class VlocityService {
    */
   async checkAvailability() {
     try {
-      const { spawn } = require('child_process');
-      
-      // Try multiple approaches to check Vlocity CLI availability
-      const approaches = [
-        // Approach 1: Try direct vlocity command with shell (most reliable on Windows)
-        () => this.checkWithCommandShell('vlocity', ['--version']),
-        // Approach 2: Try npx.cmd vlocity --version
-        () => this.checkWithCommandShell('npx.cmd', ['vlocity', '--version']),
-        // Approach 3: Try npx vlocity --version
-        () => this.checkWithCommandShell('npx', ['vlocity', '--version']),
-      ];
-
-      for (const approach of approaches) {
-        try {
-          const result = await approach();
-          if (result) {
-            // Only log once when CLI is found, suppress individual approach success
-            return true;
-          }
-        } catch (error) {
-          // Continue to next approach silently
-        }
-      }
-
-      logger.logOperation('Vlocity CLI not found after trying all approaches');
+      if (await commandAvailable('vlocity', ['--version'])) return true;
+      if (await commandAvailable('npx', ['--no-install', 'vlocity', '--version'])) return true;
+      logger.logOperation('Vlocity CLI not found (tried vlocity, npx vlocity)');
       return false;
     } catch (error) {
       logger.logError(error, { operation: 'checkAvailability' });
@@ -792,101 +775,18 @@ class VlocityService {
   }
 
   /**
-   * Helper method to check CLI availability with specific command using shell
+   * Helper method to check CLI availability with a specific command (no shell).
+   * Kept for backwards compatibility with callers/tests.
    * @param {string} command - Command to run
    * @param {Array} args - Command arguments
    * @returns {Promise<boolean>} Success status
    */
   async checkWithCommandShell(command, args) {
-    return new Promise((resolve) => {
-      const { spawn } = require('child_process');
-      
-      // Use shell mode for better Windows compatibility
-      const commandString = `${command} ${args.join(' ')}`;
-      const child = spawn(commandString, [], { 
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
-        windowsHide: true,
-        timeout: 10000 // 10 second timeout
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        const success = code === 0;
-        if (!success) {
-          logger.logOperation('CLI command failed', { command, args, code, stderr: stderr.trim() });
-        }
-        // Suppress all success logging - only log failures
-        resolve(success);
-      });
-
-      child.on('error', (error) => {
-        logger.logOperation('CLI command error', { command, args, error: error.message });
-        resolve(false);
-      });
-    });
+    return commandAvailable(command, args, 10000);
   }
 
-  /**
-   * Helper method to check CLI availability with specific command
-   * @param {string} command - Command to run
-   * @param {Array} args - Command arguments
-   * @returns {Promise<boolean>} Success status
-   */
   async checkWithCommand(command, args) {
-    return new Promise((resolve) => {
-      const { spawn } = require('child_process');
-      
-      // Use proper argument handling without shell
-      const child = spawn(command, args, { 
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: false,
-        windowsHide: true,
-        timeout: 10000 // 10 second timeout
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        const success = code === 0;
-        if (!success) {
-          logger.logOperation('CLI command failed', { command, args, code, stderr: stderr.trim() });
-        }
-        // Suppress all success logging - only log failures
-        resolve(success);
-      });
-
-      child.on('error', (error) => {
-        logger.logOperation('CLI command error', { command, args, error: error.message });
-        resolve(false);
-      });
-
-      // Handle timeout
-      setTimeout(() => {
-        child.kill();
-        logger.logOperation('CLI command timeout', { command, args });
-        resolve(false);
-      }, 10000);
-    });
+    return commandAvailable(command, args, 10000);
   }
 
   /**
@@ -901,48 +801,13 @@ class VlocityService {
         throw new Error('Vlocity CLI not available');
       }
 
-      // Get the actual version from the command output
-      const { spawn } = require('child_process');
-      
-      return new Promise((resolve, reject) => {
-        // Use direct vlocity command with shell for better Windows compatibility
-        const commandString = 'vlocity --version';
-        const child = spawn(commandString, [], { 
-          stdio: ['ignore', 'pipe', 'pipe'],
-          shell: true,
-          windowsHide: true,
-          timeout: 10000
-        });
-
-        let stdout = '';
-        let stderr = '';
-
-        child.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        child.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
-
-        child.on('close', (code) => {
-          if (code === 0) {
-            resolve(stdout.trim());
-          } else {
-            reject(new Error(`Failed to get version: ${stderr.trim()}`));
-          }
-        });
-
-        child.on('error', (error) => {
-          reject(error);
-        });
-
-        // Handle timeout
-        setTimeout(() => {
-          child.kill();
-          reject(new Error('Version check timeout'));
-        }, 10000);
+      const { code, stdout, stderr, timedOut } = await runCommand('vlocity', ['--version'], {
+        timeout: 10000,
+        stdio: ['ignore', 'pipe', 'pipe'],
       });
+      if (timedOut) throw new Error('Version check timeout');
+      if (code !== 0) throw new Error(`Failed to get version: ${stderr.trim()}`);
+      return stdout.trim();
     } catch (error) {
       logger.logError(error, { operation: 'getVersion' });
       throw error;

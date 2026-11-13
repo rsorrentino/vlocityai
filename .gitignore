@@ -33,3 +33,6 @@ snapshots/
 
 # Test coverage
 coverage/
+
+# Local SQLite fallback database / generated secrets
+data/

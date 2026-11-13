@@ -1,5 +1,5 @@
 const redis = require('redis');
-const { exec } = require('child_process');
+const { runCommand } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
 class CacheService {
@@ -9,29 +9,36 @@ class CacheService {
     this._startAttempted = false;
   }
 
-  // Best-effort: try to start Redis via system service.
-  // Uses `sudo -n` (non-interactive) so it fails fast if password is required
-  // instead of hanging waiting for input.
-  _tryStartRedis() {
-    if (this._startAttempted) return Promise.resolve();
+  // Best-effort: try to start a local Redis via the Linux service manager.
+  // Only attempted on Linux, only for a localhost REDIS_URL, and only when
+  // REDIS_AUTOSTART is not 'false'. Never prompts for a password (sudo -n).
+  // On Windows/macOS Redis is optional: the app runs with caching disabled.
+  async _tryStartRedis() {
+    if (this._startAttempted) return;
     this._startAttempted = true;
 
-    return new Promise(resolve => {
-      // Try without sudo first, then with sudo -n (non-interactive, fails fast if pw needed)
-      const cmd = 'service redis-server start 2>/dev/null || sudo -n service redis-server start 2>/dev/null';
-      exec(cmd, { timeout: 4000 }, (error) => {
-        if (error) {
-          logger.warn(
-            'Redis auto-start skipped — run manually: sudo service redis-server start\n' +
-            '  Tip: for passwordless auto-start add to sudoers:\n' +
-            '       <user> ALL=(ALL) NOPASSWD: /usr/sbin/service redis-server start'
-          );
-        } else {
+    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+    const isLocal = /\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(redisUrl);
+    if (process.platform !== 'linux' || !isLocal || process.env.REDIS_AUTOSTART === 'false' || process.env.NODE_ENV === 'test') {
+      return;
+    }
+
+    const attempts = [
+      ['service', ['redis-server', 'start']],
+      ['sudo', ['-n', 'service', 'redis-server', 'start']],
+    ];
+    for (const [cmd, args] of attempts) {
+      try {
+        const { code } = await runCommand(cmd, args, { timeout: 4000, stdio: ['ignore', 'pipe', 'pipe'] });
+        if (code === 0) {
           logger.info('Redis started automatically via service');
+          return;
         }
-        resolve();
-      });
-    });
+      } catch {
+        /* try next */
+      }
+    }
+    logger.warn('Redis auto-start skipped — Redis is optional; start it manually to enable caching.');
   }
 
   async connect() {

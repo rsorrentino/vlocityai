@@ -30,17 +30,15 @@ router.post('/create', authenticate, adminOnly, asyncHandler(async (req, res) =>
 
     // Backup database
     if (sequelize.getDialect() === 'postgres') {
-      // PostgreSQL backup using pg_dump
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
-
+      // PostgreSQL backup using pg_dump (argv, no shell; works on every OS)
+      const { runCommand } = require('../utils/processRunner');
       const dbUrl = process.env.DATABASE_URL;
-      const dbName = dbUrl.match(/\/\/([^:]+):([^@]+)@([^:]+):(\d+)\/(.+)/);
-      
-      if (dbName) {
+      if (dbUrl) {
         const backupFile = path.join(backupPath, 'database.sql');
-        await execAsync(`pg_dump "${dbUrl}" > "${backupFile}"`);
+        await runCommand('pg_dump', ['--dbname', dbUrl, '--file', backupFile], {
+          timeout: 30 * 60 * 1000,
+          rejectOnError: true,
+        });
       }
     } else {
       // SQLite backup
@@ -231,15 +229,15 @@ router.post('/restore', authenticate, adminOnly, asyncHandler(async (req, res) =
     // Restore database
     const { sequelize } = databaseService;
     if (sequelize.getDialect() === 'postgres') {
-      const { exec } = require('child_process');
-      const { promisify } = require('util');
-      const execAsync = promisify(exec);
-
+      const { runCommand } = require('../utils/processRunner');
       const dbUrl = process.env.DATABASE_URL;
       const sqlFile = path.join(extractPath, 'database.sql');
-      
-      if (await fs.pathExists(sqlFile)) {
-        await execAsync(`psql "${dbUrl}" < "${sqlFile}"`);
+
+      if (dbUrl && await fs.pathExists(sqlFile)) {
+        await runCommand('psql', ['--dbname', dbUrl, '--file', sqlFile, '--set', 'ON_ERROR_STOP=1'], {
+          timeout: 30 * 60 * 1000,
+          rejectOnError: true,
+        });
       }
     } else {
       // SQLite restore

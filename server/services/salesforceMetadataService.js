@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
 /**
@@ -63,16 +63,12 @@ class SalesforceMetadataService {
 
       logger.info(`Querying ${prefixes.length} prefixes via SF CLI`);
 
-      // Execute SF CLI query — pass SOQL as a quoted shell string to avoid
-      // Windows splitting on spaces/commas inside the value
-      const quotedSoql = `"${soql.replace(/"/g, '\\"')}"`;
-      const cmd = `sf data query --query ${quotedSoql} --target-org ${username} --result-format json`;
+      // Execute SF CLI query (argv array, no shell – safe on every OS)
+      const args = ['data', 'query', '--query', soql, '--target-org', username, '--result-format', 'json'];
 
-      const child = spawn(cmd, [], {
+      const child = spawn('sf', args, {
         cwd: process.cwd(),
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true,
-        windowsHide: true
       });
 
       let stdout = '';
@@ -181,7 +177,6 @@ class SalesforceMetadataService {
         const child = spawn('sf', args, {
           cwd: process.cwd(),
           stdio: ['pipe', 'pipe', 'pipe'],
-          shell: true,
           windowsHide: true
         });
 
@@ -240,7 +235,6 @@ class SalesforceMetadataService {
       const child = spawn('sf', args, {
         cwd: process.cwd(),
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true,
         windowsHide: true
       });
 

@@ -1,6 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
-const { spawn } = require('child_process');
+const { spawnSafe, commandAvailable } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
 /**
@@ -79,10 +79,8 @@ class VlocityVersionService {
    */
   async getNpmInstalledVersions() {
     return new Promise((resolve) => {
-      const child = spawn('npm', ['list', '-g', 'vlocity', '--depth=0'], {
+      const child = spawnSafe('npm', ['list', '-g', 'vlocity', '--depth=0'], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
-        windowsHide: true
       });
       
       let output = '';
@@ -178,38 +176,37 @@ class VlocityVersionService {
    * Test if a version command works
    */
   async testVersionCommand(version) {
-    return new Promise((resolve) => {
-      const command = `vlocity@${version} --version`;
-      const child = spawn(command, [], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
-        windowsHide: true,
-        timeout: 10000
-      });
-      
-      child.on('close', (code) => {
-        resolve(code === 0);
-      });
-      
-      child.on('error', () => resolve(false));
-      
-      // Timeout
-      setTimeout(() => {
-        child.kill();
-        resolve(false);
-      }, 10000);
-    });
+    try {
+      const [cmd, ...prefix] = this.getVersionCommandParts(version);
+      return await commandAvailable(cmd, [...prefix, '--version'], 60000);
+    } catch {
+      return false;
+    }
   }
 
   /**
    * Get the command for a specific version
    */
   getVersionCommand(version) {
-    if (version === this.defaultVersion) {
-      return 'vlocity';
+    return this.getVersionCommandParts(version).join(' ');
+  }
+
+  /**
+   * Get the argv (executable + leading args) for a specific version.
+   * The default version uses the globally installed `vlocity` binary; any other
+   * version is run through `npx --yes vlocity@<version>` which works the same on
+   * Windows, Linux and macOS.
+   * @param {string} version
+   * @returns {string[]}
+   */
+  getVersionCommandParts(version) {
+    if (!version || version === this.defaultVersion) {
+      return ['vlocity'];
     }
-    
-    return `vlocity@${version}`;
+    if (!/^\d+\.\d+\.\d+(?:[-.][0-9A-Za-z.-]+)?$/.test(String(version))) {
+      throw new Error(`Invalid Vlocity version: ${version}`);
+    }
+    return ['npx', '--yes', `vlocity@${version}`];
   }
 
   /**
@@ -310,6 +307,7 @@ class VlocityVersionService {
         valid: true,
         version: this.defaultVersion,
         command: this.getVersionCommand(this.defaultVersion),
+        commandParts: this.getVersionCommandParts(this.defaultVersion),
         message: 'Using default version'
       };
     }
@@ -327,6 +325,7 @@ class VlocityVersionService {
       valid: true,
       version: jobVersion,
       command: this.getVersionCommand(jobVersion),
+      commandParts: this.getVersionCommandParts(jobVersion),
       message: `Using version ${jobVersion}`
     };
   }

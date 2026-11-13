@@ -2,7 +2,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const logger = require('../utils/logger');
 const { ValidationError } = require('../middleware/errorHandler');
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 
 /**
  * SF CLI Reference Updater Service
@@ -26,33 +26,8 @@ class SfCliReferenceUpdater {
       let cliCommand = 'sf';
       const args = ['data', 'query', '--query', soql, '--target-org', username, '--result-format', 'json'];
       
-      // On Windows with shell mode, construct full command string for better compatibility
-      // This avoids issues with SOQL queries containing spaces being parsed incorrectly
-      let child;
-      if (process.platform === 'win32') {
-        // For Windows, use command string approach with proper quoting
-        const commandString = `${cliCommand} ${args.map(arg => {
-          // Properly escape and quote arguments that contain spaces or special characters
-          if (typeof arg === 'string' && (arg.includes(' ') || arg.includes(',') || arg.includes('!') || arg.includes('='))) {
-            // Escape internal quotes and wrap in quotes
-            return `"${arg.replace(/"/g, '\\"')}"`;
-          }
-          return arg;
-        }).join(' ')}`;
-        
-        logger.info(`Executing SF CLI query on Windows: ${commandString}`);
-        
-        child = spawn(commandString, [], {
-          shell: true,
-          windowsHide: true
-        });
-      } else {
-        // Use standard spawn with args array for non-Windows
-        child = spawn(cliCommand, args, {
-          shell: false,
-          windowsHide: true
-        });
-      }
+      // argv array, no shell – cross-spawn handles Windows .cmd shims safely
+      const child = spawn(cliCommand, args, {});
 
       let stdout = '';
       let stderr = '';

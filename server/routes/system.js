@@ -5,7 +5,7 @@ const systemStatusService = require('../services/systemStatusService');
 const databaseService = require('../services/databaseService');
 const cacheService = require('../services/cacheService');
 const logger = require('../utils/logger');
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 
 /**
  * @route GET /api/system/status
@@ -136,6 +136,19 @@ router.post('/run-auth-command', asyncHandler(async (req, res) => {
       error: 'Alias is required'
     });
   }
+
+  // Defense in depth: the command runs without a shell, but still reject
+  // anything that is not a plausible alias / https instance URL.
+  if (typeof alias !== 'string' || !/^[A-Za-z0-9_.@-]{1,80}$/.test(alias)) {
+    return res.status(400).json({ success: false, error: 'Invalid alias' });
+  }
+  if (instanceUrl) {
+    let parsed;
+    try { parsed = new URL(instanceUrl); } catch { parsed = null; }
+    if (!parsed || parsed.protocol !== 'https:') {
+      return res.status(400).json({ success: false, error: 'instanceUrl must be an https URL' });
+    }
+  }
   
   try {
     // Build the sf org login web command
@@ -150,7 +163,6 @@ router.post('/run-auth-command', asyncHandler(async (req, res) => {
     const child = spawn('sf', args, {
       detached: true,
       stdio: 'ignore', // Don't capture output, let it open browser
-      shell: true,
       windowsHide: false // Show the browser window
     });
     
