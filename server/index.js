@@ -310,6 +310,12 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api', requireApiAuth);
 
+// Role-based access control for every /api route (see middleware/accessPolicy.js)
+const { authorizeRequest } = require('./middleware/accessPolicy');
+app.use('/api', authorizeRequest({
+  isPublic: (req) => PUBLIC_API_ROUTES.has(`${req.method} ${(req.baseUrl + req.path).replace(/\/+$/, '') || '/'}`),
+}));
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/orgs', orgRoutes);
