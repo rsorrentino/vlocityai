@@ -42,6 +42,12 @@ class CacheService {
   }
 
   async connect() {
+    // Redis is optional. Skip it entirely when disabled or not configured.
+    if (process.env.DISABLE_REDIS === 'true' || process.env.REDIS_URL === '') {
+      logger.info('Redis disabled — caching off');
+      return;
+    }
+
     // Best-effort: try to bring Redis up before connecting
     await this._tryStartRedis();
 
@@ -99,7 +105,20 @@ class CacheService {
         this.isConnected = false;
       });
 
-      await this.client.connect();
+      // Connect in the background. With the infinite reconnect strategy the
+      // connect() promise only settles once Redis is up, so never block
+      // startup on it (Redis is usually absent on Windows/macOS dev machines).
+      const connecting = this.client.connect().catch(() => {});
+      await Promise.race([
+        connecting,
+        new Promise((resolve) => {
+          const t = setTimeout(resolve, 2000);
+          if (t.unref) t.unref();
+        }),
+      ]);
+      if (!this.isConnected) {
+        logger.warn('Redis not reachable — continuing without cache (will keep retrying in background)');
+      }
 
     } catch (error) {
       // Initial connect failed — the reconnectStrategy will keep retrying automatically.

@@ -100,13 +100,22 @@ function CopilotModelPicker({ value, onChange, connected }) {
       .finally(() => setLoading(false));
   }, [connected]);
 
+  const labelFor = (id) => {
+    const m = models.find(x => x.id === id);
+    return m && m.name !== id ? `${m.name} (${id})` : id;
+  };
+
   return (
     <Autocomplete
       freeSolo
+      openOnFocus
       options={models.map(m => m.id)}
-      getOptionLabel={(id) => {
-        const m = models.find(x => x.id === id);
-        return m && m.name !== id ? `${m.name} (${id})` : id;
+      getOptionLabel={labelFor}
+      // Show every model until the user types something different from the current value
+      filterOptions={(options, state) => {
+        const q = state.inputValue.trim().toLowerCase();
+        if (!q || q === String(value || '').toLowerCase() || q === labelFor(value || '').toLowerCase()) return options;
+        return options.filter(id => labelFor(id).toLowerCase().includes(q));
       }}
       loading={loading}
       value={value || ''}

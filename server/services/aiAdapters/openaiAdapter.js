@@ -43,7 +43,8 @@ const SUPPORTED_ADAPTERS = Object.keys(ADAPTER_DEFAULTS);
  *   2. token stored for this user via "Sign in with GitHub"
  *   3. GITHUB_COPILOT_TOKEN on the server
  *   4. the local Copilot IDE plugin token (only if COPILOT_USE_LOCAL_TOKEN=true)
- *   5. GITHUB_TOKEN (legacy; only works if it is a Copilot OAuth token)
+ * GITHUB_TOKEN is deliberately not used: it is normally a PAT or CI token,
+ * which Copilot rejects (use the GitHub Models adapter for PATs).
  * @returns {Promise<{token:string|null, source:string|null, accountLogin?:string|null}>}
  */
 async function resolveCopilotGitHubToken({ apiKey, userId, credentialStore } = {}) {
@@ -62,7 +63,6 @@ async function resolveCopilotGitHubToken({ apiKey, userId, credentialStore } = {
     const local = copilot.discoverLocalCopilotToken();
     if (local) return { token: local, source: 'local' };
   }
-  if (process.env.GITHUB_TOKEN) return { token: process.env.GITHUB_TOKEN, source: 'env-legacy' };
   return { token: null, source: null };
 }
 

@@ -15,7 +15,6 @@ const SOURCE_LABELS = {
   user: 'your GitHub account',
   env: 'the server (GITHUB_COPILOT_TOKEN)',
   local: 'the Copilot IDE sign-in on the server machine',
-  'env-legacy': 'the server (GITHUB_TOKEN)',
   request: 'the token in these settings',
 };
 

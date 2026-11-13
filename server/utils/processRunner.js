@@ -41,7 +41,8 @@ function spawnSafe(command, args = [], options = {}) {
 
   // eslint-disable-next-line no-unused-vars
   const { shell, ...rest } = options;
-  return crossSpawn(command, safeArgs, { windowsHide: true, ...rest, shell: false });
+  // Pass env explicitly so PATH lookups always use this process's environment
+  return crossSpawn(command, safeArgs, { windowsHide: true, env: process.env, ...rest, shell: false });
 }
 
 /**

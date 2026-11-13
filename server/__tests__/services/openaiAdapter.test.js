@@ -83,9 +83,15 @@ describe('openaiAdapter', () => {
 
     it('survives a credential store that is not ready', async () => {
       const store = { getCredential: jest.fn().mockRejectedValue(new Error('db down')) };
-      process.env.GITHUB_TOKEN = 'gho_legacy';
+      process.env.GITHUB_COPILOT_TOKEN = 'gho_env';
       const r = await resolveCopilotGitHubToken({ userId: 'u1', credentialStore: store });
-      expect(r).toEqual({ token: 'gho_legacy', source: 'env-legacy' });
+      expect(r).toEqual({ token: 'gho_env', source: 'env' });
+    });
+
+    it('ignores GITHUB_TOKEN (PATs/CI tokens are not Copilot tokens)', async () => {
+      process.env.GITHUB_TOKEN = 'ghp_pat';
+      const r = await resolveCopilotGitHubToken({ credentialStore: storeWith(null) });
+      expect(r).toEqual({ token: null, source: null });
     });
   });
 
