@@ -32,79 +32,17 @@ class AuditService {
         return;
       }
 
-      const dbType = sequelize.getDialect();
-
-      if (dbType === 'postgres') {
-        // Create audit log table if it doesn't exist (PostgreSQL)
-        await sequelize.query(`
-          CREATE TABLE IF NOT EXISTS vlocity_datapack_manager.audit_logs (
-            id SERIAL PRIMARY KEY,
-            timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(255),
-            username VARCHAR(255),
-            action VARCHAR(100) NOT NULL,
-            resource_type VARCHAR(100),
-            resource_id VARCHAR(255),
-            tenant_id VARCHAR(255),
-            ip_address INET,
-            user_agent TEXT,
-            request_id VARCHAR(255),
-            session_id VARCHAR(255),
-            status VARCHAR(50),
-            error_message TEXT,
-            metadata JSONB,
-            severity VARCHAR(20) DEFAULT 'info',
-            compliance_tags TEXT[],
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
-        // Create indexes for performance
-        await sequelize.query(`
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON vlocity_datapack_manager.audit_logs(timestamp);
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON vlocity_datapack_manager.audit_logs(user_id);
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON vlocity_datapack_manager.audit_logs(action);
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON vlocity_datapack_manager.audit_logs(resource_type, resource_id);
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON vlocity_datapack_manager.audit_logs(tenant_id);
-          CREATE INDEX IF NOT EXISTS idx_audit_logs_severity ON vlocity_datapack_manager.audit_logs(severity);
-        `);
-      } else {
-        // Create audit log table if it doesn't exist (SQLite)
-        await sequelize.query(`
-          CREATE TABLE IF NOT EXISTS audit_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            user_id VARCHAR(255),
-            username VARCHAR(255),
-            action VARCHAR(100) NOT NULL,
-            resource_type VARCHAR(100),
-            resource_id VARCHAR(255),
-            tenant_id VARCHAR(255),
-            ip_address VARCHAR(45),
-            user_agent TEXT,
-            request_id VARCHAR(255),
-            session_id VARCHAR(255),
-            status VARCHAR(50),
-            error_message TEXT,
-            metadata TEXT,
-            severity VARCHAR(20) DEFAULT 'info',
-            compliance_tags TEXT,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-          )
-        `);
-
-        // Create indexes for performance
-        const indexes = [
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp)',
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id)',
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action)',
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_resource ON audit_logs(resource_type, resource_id)',
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id)',
-          'CREATE INDEX IF NOT EXISTS idx_audit_logs_severity ON audit_logs(severity)',
-        ];
-        for (const idx of indexes) {
-          await sequelize.query(idx);
-        }
+      // The audit_logs table is created by the baseline migration
+      // (server/migrations/20250101000001-baseline-schema.js).
+      const isPostgres = sequelize.getDialect() === 'postgres';
+      const table = isPostgres
+        ? { tableName: 'audit_logs', schema: process.env.DB_SCHEMA || 'vlocity_datapack_manager' }
+        : 'audit_logs';
+      try {
+        await sequelize.getQueryInterface().describeTable(table);
+      } catch {
+        logger.warn('Audit service: audit_logs table missing – run "npm run db:migrate"');
+        return;
       }
 
       this.tableReady = true;
@@ -379,7 +317,7 @@ class AuditService {
   getTableRef(sequelize) {
     const dbType = sequelize.getDialect();
     const tableRefMap = {
-      postgres: 'vlocity_datapack_manager.audit_logs',
+      postgres: `"${process.env.DB_SCHEMA || 'vlocity_datapack_manager'}"."audit_logs"`,
       sqlite: 'audit_logs',
     };
     const tableRef = tableRefMap[dbType];

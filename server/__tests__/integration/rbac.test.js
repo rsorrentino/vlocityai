@@ -9,12 +9,14 @@ const request = require('supertest');
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vlocityai-rbac-'));
 Object.assign(process.env, {
   DATA_DIR: dataDir,
-  DATABASE_URL: 'sqlite::memory:',
+  DATABASE_URL: process.env.TEST_DATABASE_URL || 'sqlite::memory:',
   ENABLE_AUDIT_LOGGING: 'false',
   ADMIN_USERNAME: 'rbacadmin',
   ADMIN_EMAIL: 'rbacadmin@example.com',
   ADMIN_PASSWORD: 'Rbac-Admin-Pass-1',
 });
+
+if (process.env.TEST_DATABASE_URL) process.env.DB_SCHEMA = `it_${path.basename(__filename, '.test.js').replace(/\W/g, '_').toLowerCase()}_${Date.now()}`;
 
 jest.setTimeout(30000);
 

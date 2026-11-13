@@ -12,9 +12,17 @@ ENV NODE_ENV=production \
     PORT=3001 \
     DATA_DIR=/app/data
 
-# git: used by the Vlocity tool; postgresql-client: pg_dump/psql for backups
+# git: used by the Vlocity tool. PostgreSQL client (pg_dump/psql for backups)
+# comes from the official PostgreSQL repo so it matches the server major
+# version (pg_dump cannot dump a newer server).
+ARG PG_CLIENT_VERSION=16
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends git curl ca-certificates postgresql-client \
+    && apt-get install -y --no-install-recommends git curl ca-certificates gnupg \
+    && install -d /usr/share/postgresql-common/pgdg \
+    && curl -fsSL -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.asc https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.asc] https://apt.postgresql.org/pub/repos/apt bookworm-pgdg main" > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends "postgresql-client-${PG_CLIENT_VERSION}" \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

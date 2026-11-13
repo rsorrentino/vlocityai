@@ -52,7 +52,7 @@ function getDialect(db) {
 }
 
 function getTableRef(db, tableName) {
-  return getDialect(db) === 'postgres' ? `${schema}.${tableName}` : tableName;
+  return getDialect(db) === 'postgres' ? `"${schema}"."${tableName}"` : `"${tableName}"`;
 }
 
 function getTableDefinition(db, tableName) {
@@ -78,7 +78,9 @@ function serializeJsonField(db, value) {
     return null;
   }
 
-  return getDialect(db) === 'postgres' ? value : JSON.stringify(value);
+  // Always pass JSON as a string: raw bulkInsert cannot escape arrays/objects
+  // ("Invalid value" on PostgreSQL); PostgreSQL casts the text to jsonb.
+  return JSON.stringify(value);
 }
 
 function parseJsonField(value) {
@@ -378,7 +380,7 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
     let orgList = [];
     try {
       const db = getDb();
-      const [rows] = await db.query(`SELECT username, environment, label FROM ${schema}.orgs LIMIT 20`);
+      const [rows] = await db.query(`SELECT username, environment, label FROM ${getTableRef(db, 'orgs')} LIMIT 20`);
       orgList = rows;
     } catch {}
 
