@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
-const { authenticate, adminOnly, requirePermission } = require('../middleware/auth');
+const { authenticate, adminOnly } = require('../middleware/auth');
 const authService = require('../services/authService');
 const logger = require('../utils/logger');
 

@@ -85,7 +85,6 @@ async function createSnapshot(username, label, isAutomatic = false, relatedJobId
  * List snapshots for an org (most recent first).
  */
 async function listSnapshots(username) {
-  const { Op } = require('sequelize');
   const rows = await Job.findAll({
     where: { type: 'snapshot', username },
     order: [['createdAt', 'DESC']],

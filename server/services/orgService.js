@@ -1,4 +1,3 @@
-const path = require('path');
 const { Org } = require('../models');
 const sfdxAuthService = require('./sfdxAuthService');
 const PropertiesReader = require('../utils/propertiesReader');

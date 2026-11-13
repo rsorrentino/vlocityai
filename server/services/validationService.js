@@ -1012,6 +1012,7 @@ class ValidationService {
             `${orphanedRelations.length} product relationships are missing parent or child products`,
             {
               totalOrphaned: orphanedRelations.length,
+              summary: detailsMessage,
               sample: orphanedRelations.slice(0, sampleSize),
               allOrphaned: orphanedRelations.map(rel => ({
                 relationshipId: rel.relationshipId,

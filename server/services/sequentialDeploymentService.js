@@ -27,7 +27,7 @@ const logger  = require('../utils/logger');
 const jobMonitor = require('./jobMonitor');
 const vlocityService  = require('./vlocityService');
 const sfCliService    = require('./sfCliService');
-const { DEPLOYMENT_SEQUENCE, NESTED_IN_MAP } = require('../config/deploymentSequence');
+const { DEPLOYMENT_SEQUENCE } = require('../config/deploymentSequence');
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 

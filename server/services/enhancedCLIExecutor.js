@@ -224,7 +224,6 @@ class EnhancedCLIExecutor {
     }
 
     // Execute deploy (similar pattern to export)
-    const vlocityService = require('./vlocityService');
     const command = 'vlocity';
     const args = [
       `-sfdx.username=${config.targetUsername}`,

@@ -28,8 +28,6 @@ function parseErrors(errorLogPath) {
     otherErrors: []
   };
 
-  let currentError = null;
-  
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     
@@ -82,7 +80,7 @@ async function fixDuplicateFields(duplicateErrors, targetUsername) {
   const fixes = [];
   let fixCounter = 10000; // Start from a high number to avoid conflicts
 
-  for (const [key, records] of Object.entries(duplicatesByField)) {
+  for (const records of Object.values(duplicatesByField)) {
     if (records.length > 1) {
       // Multiple records with same value - need to fix all but one
       for (let i = 1; i < records.length; i++) {

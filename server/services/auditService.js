@@ -5,7 +5,7 @@
 
 const logger = require('../utils/logger');
 const databaseService = require('./databaseService');
-const { Op, QueryTypes } = require('sequelize');
+const { QueryTypes } = require('sequelize');
 
 class AuditService {
   constructor() {

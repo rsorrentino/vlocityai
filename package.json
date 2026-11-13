@@ -16,7 +16,7 @@
     "test:integration": "jest --testPathPattern=__tests__/integration",
     "test:verbose": "jest --verbose --coverage",
     "test:ci": "jest --ci --coverage --maxWorkers=2",
-    "lint": "eslint server scripts",
+    "lint": "eslint server scripts --max-warnings 0",
     "format": "prettier --write server/ client/src/",
     "install-vlocity": "npm install -g vlocity",
     "install-sfdx": "npm install -g @salesforce/cli",

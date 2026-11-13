@@ -26,9 +26,7 @@ class DataPackDependencyService {
         keyCount: dataPackKeys.length 
       });
 
-      const resolved = [];
       const pending = [...dataPackKeys];
-      const visited = new Set();
       const dependencyMap = new Map();
 
       // Build dependency map

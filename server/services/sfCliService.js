@@ -3,7 +3,7 @@ const { resolveSfCli } = require('../utils/sfCli');
 const fs = require('fs-extra');
 const path = require('path');
 const logger = require('../utils/logger');
-const { NotFoundError, ValidationError } = require('../middleware/errorHandler');
+const { ValidationError } = require('../middleware/errorHandler');
 const jobMonitor = require('./jobMonitor');
 const jobExecutionService = require('./jobExecutionService');
 
@@ -585,7 +585,7 @@ class SfCliService {
               let cleanOutput = output.replace(/\u001b\[[0-9;]*m/g, '').replace(/\x1b\[[0-9;]*m/g, '');
               
               // Extract JSON from output (might have warnings before JSON)
-              const jsonStart = cleanOutput.search(/[\{\[]/);
+              const jsonStart = cleanOutput.search(/[{[]/);
               if (jsonStart > 0) {
                 cleanOutput = cleanOutput.substring(jsonStart);
               }
@@ -638,8 +638,6 @@ class SfCliService {
             }
           } else {
             // Use data tree export for queries without relationship fields (preserves hierarchical structure)
-            const outputFile = path.join(absProjectPath, `${objectName}.json`);
-            
             // Export using SF CLI data tree export (preserves relationships)
             // Note: sf data tree export uses --output-dir (directory) not --output-file
             // The command exports to a directory and creates JSON files there
@@ -841,7 +839,7 @@ class SfCliService {
       await Promise.allSettled(executing);
     };
     
-    const queryResults = await executeWithLimit(queries, maxConcurrency, async (queryConfig, index) => {
+    await executeWithLimit(queries, maxConcurrency, async (queryConfig, index) => {
       try {
         const result = await executeQuery(queryConfig, index, totalQueries);
         if (result) {
@@ -889,7 +887,7 @@ class SfCliService {
     // Pattern to match the error table format:
     // │ GT_RateTable__cRef407 │ ENTITY_IS_DELETED │ ...
     // │ GT_RateTable__cRef454 │ INSUFFICIENT_ACCESS_ON_CROSS_REFERENCE_ENTITY │ ...
-    const tableRowPattern = /\│\s*([A-Za-z0-9_]+Ref\d+)\s*│/g;
+    const tableRowPattern = /│\s*([A-Za-z0-9_]+Ref\d+)\s*│/g;
     const matches = [...cleanOutput.matchAll(tableRowPattern)];
     
     for (const match of matches) {
@@ -1386,7 +1384,7 @@ class SfCliService {
                             jobMonitor.addJobLog(jobId, `🔄 Retrying batch ${batchNum} with ${filteredData.length} records (removed ${originalData.length - filteredData.length} failed records)`, 'info');
                           }
                           
-                          const retryOutput = await this.executeCommand([
+                          await this.executeCommand([
                             'data', 'tree', 'import',
                             '--files', filteredBatchPath,
                             '--target-org', targetUsername
@@ -1548,7 +1546,7 @@ class SfCliService {
                         jobMonitor.addJobLog(jobId, `🔄 Retrying ${objectName} with ${filteredRecords.length} records (removed ${originalRecords.length - filteredRecords.length} failed records)`, 'info');
                       }
                       
-                      const retryOutput = await this.executeCommand([
+                      await this.executeCommand([
                         'data', 'tree', 'import',
                         '--files', filteredFilePath,
                         '--target-org', targetUsername

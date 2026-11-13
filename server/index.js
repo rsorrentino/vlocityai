@@ -46,13 +46,11 @@ const systemStatusService = require('./services/systemStatusService');
 // Enterprise Services
 const getEnterpriseMonitoringService = require('./services/enterpriseMonitoringService');
 const getAuditService = require('./services/auditService');
-const getCircuitBreakerService = require('./services/circuitBreakerService');
 const getEnterpriseJobQueueService = require('./services/enterpriseJobQueueService');
 
 // Get service instances
 const enterpriseMonitoringService = getEnterpriseMonitoringService();
 const auditService = getAuditService();
-const circuitBreakerService = getCircuitBreakerService();
 const enterpriseJobQueueService = getEnterpriseJobQueueService();
 
 // Enterprise Middleware
@@ -62,7 +60,6 @@ const {
   performanceMonitoringMiddleware,
   requestIdMiddleware,
   correlationIdMiddleware,
-  userRateLimitMiddleware,
 } = require('./middleware/enterpriseMiddleware');
 
 // Import routes
@@ -89,7 +86,6 @@ const vlocityPricingApiRoutes = require('./routes/vlocityPricingApi');
 const vlocityPromotionsApiRoutes = require('./routes/vlocityPromotionsApi');
 const enhancedVlocityPricingApiRoutes = require('./routes/enhancedVlocityPricingApi');
 const validationApiRoutes = require('./routes/validationApi');
-const validationFixApiRoutes = require('./routes/validationFixApi');
 const exportDataRoutes = require('./routes/exportData');
 const auditApiRoutes = require('./routes/auditApi');
 const backupRestoreRoutes = require('./routes/backupRestore');

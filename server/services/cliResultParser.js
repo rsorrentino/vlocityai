@@ -54,7 +54,7 @@ class CLIResultParser {
     const lines = stdout.split('\n');
 
     // Extract pack export information with detailed parsing
-    const packRegex = /Exported:\s+(\w+)\/([^\/]+)(?:\s+\((\d+)\s+records?\))?/i;
+    const packRegex = /Exported:\s+(\w+)\/([^/]+)(?:\s+\((\d+)\s+records?\))?/i;
     const errorRegex = /Error:\s+(.+)|Failed:\s+(.+)|Exception:\s+(.+)/i;
     const warningRegex = /Warning:\s+(.+)|Deprecated:\s+(.+)/i;
     const performanceRegex = /(\w+\/[^\s]+)\s+completed in\s+([\d.]+)\s*s/i;
@@ -220,7 +220,7 @@ class CLIResultParser {
     const lines = stdout.split('\n');
 
     // Deploy-specific patterns
-    const deployRegex = /Deployed:\s+(\w+)\/([^\/]+)(?:\s+\((\d+)\s+records?\))?/i;
+    const deployRegex = /Deployed:\s+(\w+)\/([^/]+)(?:\s+\((\d+)\s+records?\))?/i;
     const settingsMismatchRegex = /Settings?\s+mismatch.+?(\w+)/i;
     const duplicateRegex = /Duplicate.+?field.+?(\w+)/i;
     const orphanedRegex = /Orphaned.+?reference.+?(\w+)/i;

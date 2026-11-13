@@ -7,7 +7,6 @@ const salesforceMetadataService = require('./salesforceMetadataService');
 const vlocityService = require('./vlocityService');
 const jobMonitor = require('./jobMonitor');
 const jobStateService = require('./jobStateService');
-const vlocityErrorHandler = require('./vlocityErrorHandler');
 
 /**
  * Service for handling export recovery (missing dependencies)
@@ -323,7 +322,6 @@ class ExportRecoveryService {
       const mainJob = await this.readJobFile(mainJobPath);
       
       // Aggregate all queries
-      const allQueries = [...(mainJob.queries || [])];
       const objectQueries = new Map(); // objectName -> Set of IDs
 
       // Parse main job queries

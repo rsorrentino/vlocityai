@@ -33,7 +33,7 @@ npm run format
 
 - `npm run build` runs the client's Vite build (output in `client/build`); if `vite` is missing, run `npm run install-client` or `npm run setup` first.
 - The Jest environment comes from `server/__tests__/setup.js`: tests force `NODE_ENV=test`, use `sqlite::memory:`, and disable Redis.
-- `npm run lint` lints `server/` and `scripts/` with `.eslintrc.cjs`; it must report 0 errors (CI enforces it). The React client is linted with `npm --prefix client run lint` (0 warnings allowed) and tested with `npm --prefix client test` (Vitest).
+- `npm run lint` lints `server/` and `scripts/` with `.eslintrc.cjs`; it must report 0 errors and 0 warnings (CI enforces it). The React client is linted with `npm --prefix client run lint` (0 warnings allowed) and tested with `npm --prefix client test` (Vitest).
 - CI (`.github/workflows/ci.yml`) runs lint, Jest and the smoke test on ubuntu, windows and macos runners, builds the client and the Docker image.
 
 ## High-level architecture

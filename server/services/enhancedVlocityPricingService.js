@@ -1,5 +1,4 @@
 const fs = require('fs-extra');
-const path = require('path');
 const logger = require('../utils/logger');
 const salesforceService = require('./salesforceService');
 

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const salesforceService = require('../services/salesforceService');
-const sfdxAuthService = require('../services/sfdxAuthService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 
@@ -400,7 +399,7 @@ router.get('/batch/status', asyncHandler(async (req, res) => {
  *         description: List of rate codes
  */
 router.get('/rate-codes', asyncHandler(async (req, res) => {
-  const { username, country, name, orgCode, vatCode, code, type, category } = req.query;
+  const { username, country, name, orgCode, vatCode } = req.query;
   if (!username) {
     return res.status(400).json({ success: false, error: 'Username parameter is required' });
   }
@@ -474,7 +473,7 @@ router.get('/rate-codes', asyncHandler(async (req, res) => {
  *         description: List of rate tables
  */
 router.get('/rate-tables', asyncHandler(async (req, res) => {
-  const { username, country, name, orgCode, productName, code, type } = req.query;
+  const { username, country, name, orgCode, productName } = req.query;
   if (!username) {
     return res.status(400).json({ success: false, error: 'Username parameter is required' });
   }

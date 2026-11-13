@@ -1,7 +1,5 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
-const fs = require('fs-extra');
-const path = require('path');
 const sfdxAuthService = require('./sfdxAuthService');
 const retryService = require('./retryService');
 const {
