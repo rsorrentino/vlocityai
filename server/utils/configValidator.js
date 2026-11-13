@@ -1,10 +1,6 @@
 const Joi = require('joi');
-const PropertiesReader = require('./propertiesReader');
 const path = require('path');
 
-// Load properties from environments.properties file
-const propertiesPath = path.join(__dirname, '../../environments.properties');
-const properties = new PropertiesReader(propertiesPath);
 
 // Environment validation schema
 const envSchema = Joi.object({
@@ -12,9 +8,9 @@ const envSchema = Joi.object({
   PORT: Joi.number().port().default(3001),
   VLOCITY_VERSION: Joi.string().default('1.17.12'),
   VLOCITY_TIMEOUT: Joi.number().positive().default(300000),
-  DEFAULT_SFDX_USERNAME: Joi.string().email().default(properties.get('SFDX_USERNAME', 'rocco.sorrentino@amplifonapac.com.mastcatdev')),
-  DEFAULT_SOURCE_SFDX_USERNAME: Joi.string().email().default(properties.get('SOURCE_SFDX_USERNAME', 'rocco.sorrentino@amplifonapac.com.mastcatdev')),
-  DEFAULT_TARGET_SFDX_USERNAME: Joi.string().email().default(properties.get('TARGET_SFDX_USERNAME', 'rocco.sorrentino@amplifonapac.com.symporting')),
+  DEFAULT_SFDX_USERNAME: Joi.string().email().optional(),
+  DEFAULT_SOURCE_SFDX_USERNAME: Joi.string().email().optional(),
+  DEFAULT_TARGET_SFDX_USERNAME: Joi.string().email().optional(),
   DEFAULT_MAX_PARALLEL: Joi.number().positive().default(10),
   DEFAULT_EXPORT_PACKS_MAX_SIZE: Joi.number().positive().default(5000),
   DEFAULT_MAX_DEPTH: Joi.number().min(0).default(0),
@@ -23,8 +19,9 @@ const envSchema = Joi.object({
   PREALIGN_SETTINGS: Joi.boolean().default(false),
   LOG_LEVEL: Joi.string().valid('error', 'warn', 'info', 'debug').default('info'),
   LOG_FILE_PATH: Joi.string().default('./logs/vlocity-manager.log'),
-  JWT_SECRET: Joi.string().min(32).default('vlocity-datapack-manager-default-secret-change-in-production'),
-  SESSION_SECRET: Joi.string().min(32).default('vlocity-datapack-manager-session-secret-change-in-production'),
+  // JWT_SECRET is resolved by utils/secrets.js (required in production)
+  JWT_SECRET: Joi.string().min(32).optional(),
+  SESSION_SECRET: Joi.string().min(32).optional(),
   MAX_FILE_SIZE: Joi.string().default('50MB'),
   UPLOAD_PATH: Joi.string().default('./uploads'),
   RATE_LIMIT_WINDOW_MS: Joi.number().positive().default(900000),

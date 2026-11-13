@@ -14,6 +14,9 @@ class AuditService {
     this.batchSize = parseInt(process.env.AUDIT_BATCH_SIZE) || 100;
     this.batch = [];
     this.flushInterval = null;
+    // Entries are buffered until initializeDatabase() has created the table
+    this.tableReady = false;
+    this.maxBufferedEntries = 5000;
 
     if (this.isEnabled) {
       this.startBatchProcessor();
@@ -104,6 +107,7 @@ class AuditService {
         }
       }
 
+      this.tableReady = true;
       logger.info('Audit service database initialized');
     } catch (error) {
       logger.logError(error, { operation: 'initializeDatabase' });
@@ -160,7 +164,7 @@ class AuditService {
     }
 
     // Also log to Winston for immediate visibility
-    const logLevel = severity === 'error' ? 'error' : severity === 'warning' ? 'warn' : 'info';
+    const logLevel = severity === 'error' ? 'error' : severity === 'warning' ? 'warn' : 'debug';
     logger[logLevel]('Audit log', auditEntry);
   }
 
@@ -390,6 +394,14 @@ class AuditService {
    */
   async flushBatch() {
     if (this.batch.length === 0) return;
+
+    // Table not created yet (startup) – keep a bounded buffer and retry later
+    if (!this.tableReady) {
+      if (this.batch.length > this.maxBufferedEntries) {
+        this.batch.splice(0, this.batch.length - this.maxBufferedEntries);
+      }
+      return;
+    }
 
     const batchToFlush = [...this.batch];
     this.batch = [];

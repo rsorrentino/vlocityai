@@ -2,14 +2,6 @@ const logger = require('../utils/logger');
 
 // Error handling middleware
 const errorHandler = (err, req, res, next) => {
-  // Log the error
-  logger.logError(err, {
-    url: req.url,
-    method: req.method,
-    ip: req.ip,
-    userAgent: req.get('User-Agent'),
-  });
-
   // Default error response
   let statusCode = err.statusCode || err.status || 500;
   let message = err.message || 'Internal Server Error';
@@ -35,6 +27,20 @@ const errorHandler = (err, req, res, next) => {
     message = 'Permission denied';
   }
 
+  // Log: client errors (4xx) are expected and logged as warnings,
+  // server errors (5xx) with the full stack.
+  const logContext = {
+    url: req.url,
+    method: req.method,
+    ip: req.ip,
+    userAgent: typeof req.get === 'function' ? req.get('User-Agent') : req.headers?.['user-agent'],
+  };
+  if (statusCode >= 500) {
+    logger.logError(err, logContext);
+  } else {
+    logger.warn(`${statusCode} ${err.message}`, logContext);
+  }
+
   // Don't expose internal errors in production
   if (process.env.NODE_ENV === 'production' && statusCode === 500) {
     message = 'Internal Server Error';
@@ -48,7 +54,7 @@ const errorHandler = (err, req, res, next) => {
       timestamp: new Date().toISOString(),
       path: req.url,
       method: req.method,
-      ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+      ...(process.env.NODE_ENV === 'development' && statusCode >= 500 && { stack: err.stack }),
     },
   });
 };

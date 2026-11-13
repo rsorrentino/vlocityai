@@ -104,6 +104,7 @@ const serviceCreationRoutes = require('./routes/serviceCreation');
 const chatRoutes = require('./routes/chat');
 
 const app = express();
+let servicesReady = process.env.NODE_ENV === 'test';
 const DEFAULT_PORT = parseInt(process.env.PORT, 10) || 3001;
 
 // Sentry request handler must be the first middleware on the app
@@ -224,9 +225,25 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use('/logs', express.static(path.join(__dirname, '../logs')));
+// Authentication gate.
+// Every /api route requires a valid session except the small allowlist below.
+// Individual routers may still add stricter role/permission checks.
+const { authenticate } = require('./middleware/auth');
+const PUBLIC_API_ROUTES = new Set([
+  'POST /api/auth/login',
+  'GET /api/auth/status',
+]);
+const requireApiAuth = (req, res, next) => {
+  const routePath = (req.baseUrl + req.path).replace(/\/+$/, '') || '/';
+  if (req.method === 'OPTIONS' || PUBLIC_API_ROUTES.has(`${req.method} ${routePath}`)) {
+    return next();
+  }
+  return authenticate(req, res, next);
+};
+
+// Static files (job logs and uploads can contain org data – authenticated only)
+app.use('/uploads', authenticate, express.static(path.join(__dirname, '../uploads')));
+app.use('/logs', authenticate, express.static(path.join(__dirname, '../logs')));
 
 // Swagger API Documentation
 const swaggerUi = require('swagger-ui-express');
@@ -249,8 +266,8 @@ logger.info('📚 Swagger API documentation available at /api-docs');
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'healthy',
+  res.status(servicesReady ? 200 : 503).json({
+    status: servicesReady ? 'healthy' : 'starting',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
@@ -278,6 +295,15 @@ app.get('/metrics', async (req, res) => {
     res.status(404).send('# Metrics not enabled\n');
   }
 });
+
+// Refuse API traffic until the database is ready (avoids 500s during startup)
+app.use('/api', (req, res, next) => {
+  if (servicesReady) return next();
+  res.set('Retry-After', '5');
+  return res.status(503).json({ error: { message: 'Server is starting, please retry shortly', statusCode: 503 } });
+});
+
+app.use('/api', requireApiAuth);
 
 // API routes
 app.use('/api/auth', authRoutes);
@@ -324,6 +350,7 @@ if (process.env.SENTRY_DSN) {
 
 // Error handling middleware (must come after API routes)
 app.use('/api/*', errorHandler);
+app.use(['/logs', '/uploads'], errorHandler);
 
 // Serve React app (catch-all must come AFTER all API routes and Swagger)
 // Serve static files with proper headers for cross-origin access
@@ -455,13 +482,13 @@ const startServer = (port) => {
     // Wait a moment for database to be fully ready
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // Create default users
+    // Make sure an administrator exists (no hardcoded default passwords)
     const authService = require('./services/authService');
     try {
-      await authService.createDefaultUsers();
+      await authService.ensureAdminUser();
     } catch (error) {
-      logger.logError(error, { operation: 'createDefaultUsers' });
-      logger.warn('⚠️ Default users could not be created. Login may fail until the database is available.');
+      logger.logError(error, { operation: 'ensureAdminUser' });
+      logger.warn('⚠️ Initial admin user could not be created. Login may fail until the database is available.');
     }
 
     // Migrate orgs from environments.properties on first startup
@@ -469,6 +496,9 @@ const startServer = (port) => {
     const propertiesFilePath = require('path').join(__dirname, '../environments.properties');
     await orgService.migrateFromProperties(propertiesFilePath)
       .catch(err => logger.warn('Org migration from properties skipped', { error: err.message }));
+
+    servicesReady = true;
+    logger.info('✅ Server ready to accept API requests');
 
     // Initialize WebSocket job monitoring
     jobMonitor.initialize(server);

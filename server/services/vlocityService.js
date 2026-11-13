@@ -764,8 +764,14 @@ class VlocityService {
    */
   async checkAvailability() {
     try {
-      if (await commandAvailable('vlocity', ['--version'])) return true;
-      if (await commandAvailable('npx', ['--no-install', 'vlocity', '--version'])) return true;
+      if (await commandAvailable('vlocity', ['--version'])) {
+        this.availableCommand = ['vlocity'];
+        return true;
+      }
+      if (await commandAvailable('npx', ['--no-install', 'vlocity', '--version'])) {
+        this.availableCommand = ['npx', '--no-install', 'vlocity'];
+        return true;
+      }
       logger.logOperation('Vlocity CLI not found (tried vlocity, npx vlocity)');
       return false;
     } catch (error) {
@@ -801,7 +807,8 @@ class VlocityService {
         throw new Error('Vlocity CLI not available');
       }
 
-      const { code, stdout, stderr, timedOut } = await runCommand('vlocity', ['--version'], {
+      const [cmd, ...prefix] = this.availableCommand || ['vlocity'];
+      const { code, stdout, stderr, timedOut } = await runCommand(cmd, [...prefix, '--version'], {
         timeout: 10000,
         stdio: ['ignore', 'pipe', 'pipe'],
       });

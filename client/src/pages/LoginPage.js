@@ -9,8 +9,6 @@ import {
   CircularProgress,
   Container,
   Paper,
-  Divider,
-  Chip
 } from '@mui/material';
 import { Lock, Person } from '@mui/icons-material';
 import axios from 'axios';
@@ -72,16 +70,6 @@ const LoginPage = ({ onLogin }) => {
     sessionStorage.clear();
     setClearCacheMessage('Cache cleared! Please try logging in again.');
     setTimeout(() => setClearCacheMessage(''), 5000);
-  };
-
-  const handleDemoLogin = (role) => {
-    const demoCredentials = {
-      admin: { username: 'admin', password: 'Admin123!' },
-      developer: { username: 'developer', password: 'Dev123!' },
-      functional: { username: 'functional', password: 'Func123!' }
-    };
-
-    setFormData(demoCredentials[role]);
   };
 
   return (
@@ -163,40 +151,9 @@ const LoginPage = ({ onLogin }) => {
           </Button>
         </form>
 
-        <Divider sx={{ my: 3 }}>
-          <Typography variant="body2" color="text.secondary">
-            Demo Accounts
-          </Typography>
-        </Divider>
-
-        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Chip
-            label="Admin"
-            color="error"
-            variant="outlined"
-            onClick={() => handleDemoLogin('admin')}
-            disabled={loading}
-            sx={{ cursor: 'pointer' }}
-          />
-          <Chip
-            label="Developer"
-            color="warning"
-            variant="outlined"
-            onClick={() => handleDemoLogin('developer')}
-            disabled={loading}
-            sx={{ cursor: 'pointer' }}
-          />
-          <Chip
-            label="Functional"
-            color="info"
-            variant="outlined"
-            onClick={() => handleDemoLogin('functional')}
-            disabled={loading}
-            sx={{ cursor: 'pointer' }}
-          />
-        </Box>
-
-        {/* Removed hardcoded credentials display for security */}
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 3, textAlign: 'center' }}>
+          First run? The initial admin password is in <code>data/initial-admin-password.txt</code> on the server.
+        </Typography>
       </Paper>
     </Container>
   );

@@ -1,4 +1,20 @@
 const WebSocket = require('ws');
+
+function parseCookie(header) {
+  const out = {};
+  for (const part of String(header).split(';')) {
+    const idx = part.indexOf('=');
+    if (idx === -1) continue;
+    const key = part.slice(0, idx).trim();
+    if (!key) continue;
+    try {
+      out[key] = decodeURIComponent(part.slice(idx + 1).trim());
+    } catch {
+      out[key] = part.slice(idx + 1).trim();
+    }
+  }
+  return out;
+}
 const EventEmitter = require('events');
 const logger = require('../utils/logger');
 const logStorageService = require('./logStorageService');
@@ -44,9 +60,21 @@ class JobMonitor extends EventEmitter {
   }
 
   initialize(server) {
-    this.wss = new WebSocket.Server({ 
+    this.wss = new WebSocket.Server({
       server,
-      path: '/ws/jobs'
+      path: '/ws/jobs',
+      // Only authenticated users may subscribe to job logs (cookie set at login)
+      verifyClient: (info, done) => {
+        try {
+          const token = parseCookie(info.req.headers.cookie || '').auth_token
+            || (info.req.headers.authorization || '').replace(/^Bearer\s+/i, '') || null;
+          if (!token) return done(false, 401, 'Unauthorized');
+          info.req.user = require('./authService').verifyToken(token);
+          return done(true);
+        } catch (error) {
+          return done(false, 401, 'Unauthorized');
+        }
+      },
     });
 
     this.wss.on('connection', (ws, req) => {
