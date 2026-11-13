@@ -334,8 +334,8 @@ class VlocityService {
                 let urlValue = configLine.split('=')[1]?.trim();
                 if (urlValue) {
                   // Fix double dashes in hostname (common configuration error)
-                  // e.g., https://myamplifonglobal--mastcatdev.sandbox.my.salesforce.com
-                  // should be https://myamplifonglobal-mastcatdev.sandbox.my.salesforce.com
+                  // e.g., https://example--sourcedev.sandbox.my.salesforce.com
+                  // should be https://example-sourcedev.sandbox.my.salesforce.com
                   urlValue = urlValue.replace(/--+/g, '-'); // Replace multiple dashes with single dash
                   instanceUrl = urlValue;
                 }

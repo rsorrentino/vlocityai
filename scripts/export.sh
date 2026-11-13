@@ -88,7 +88,10 @@ get_env_prop() { # prefers key.<ENV>, then plain key
 }
 
 SOURCE_SFDX_USERNAME="${SOURCE_SFDX_USERNAME:-$(get_env_prop SOURCE_SFDX_USERNAME || true)}"
-SOURCE_SFDX_USERNAME="${SOURCE_SFDX_USERNAME:-rocco.sorrentino@amplifonapac.com.mastcatdev}"
+if [[ -z "$SOURCE_SFDX_USERNAME" ]]; then
+  echo "ERROR: set SOURCE_SFDX_USERNAME or add it to environments.properties (see environments.properties.example)." >&2
+  exit 1
+fi
 echo "Using ENV: ${ENV:-default} | SOURCE_SFDX_USERNAME: $SOURCE_SFDX_USERNAME | vlocity: ${PINNED_VLOCITY_VERSION}"
 ENV_SUFFIX="${ENV:+.${ENV}}"
 PROJECT_PATH="./export${ENV:+/$ENV}"

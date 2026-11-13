@@ -36,3 +36,6 @@ coverage/
 
 # Local SQLite fallback database / generated secrets
 data/
+
+# Local Salesforce org configuration (usernames, instance URLs) – see environments.properties.example
+environments.properties

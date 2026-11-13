@@ -82,8 +82,10 @@ get_env_prop() {
 
 SOURCE_SFDX_USERNAME="${SOURCE_SFDX_USERNAME:-$(get_env_prop SOURCE_SFDX_USERNAME || true)}"
 TARGET_SFDX_USERNAME="${TARGET_SFDX_USERNAME:-$(get_env_prop TARGET_SFDX_USERNAME || true)}"
-#SOURCE_SFDX_USERNAME="${SOURCE_SFDX_USERNAME:-rocco.sorrentino@amplifonapac.com.mastcatdev}"
-#TARGET_SFDX_USERNAME="${TARGET_SFDX_USERNAME:-rocco.sorrentino@amplifonapac.com.symporting}"
+if [[ -z "$SOURCE_SFDX_USERNAME" || -z "$TARGET_SFDX_USERNAME" ]]; then
+  echo "ERROR: set SOURCE_SFDX_USERNAME and TARGET_SFDX_USERNAME or add them to environments.properties (see environments.properties.example)." >&2
+  exit 1
+fi
 echo "Using ENV: ${ENV:-default} | SOURCE: $SOURCE_SFDX_USERNAME | TARGET: $TARGET_SFDX_USERNAME | vlocity: ${PINNED_VLOCITY_VERSION}"
 if [[ "$SOURCE_SFDX_USERNAME" == "$TARGET_SFDX_USERNAME" ]]; then
   echo "ERROR: SOURCE and TARGET usernames are the same. Aborting." >&2
