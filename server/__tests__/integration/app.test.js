@@ -10,11 +10,13 @@ const request = require('supertest');
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vlocityai-it-'));
 process.env.DATA_DIR = dataDir;
-process.env.DATABASE_URL = 'sqlite::memory:';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'sqlite::memory:';
 process.env.ENABLE_AUDIT_LOGGING = 'false';
 process.env.ADMIN_USERNAME = 'itadmin';
 process.env.ADMIN_EMAIL = 'itadmin@example.com';
 process.env.ADMIN_PASSWORD = 'Integration-Test-Pass-1';
+
+if (process.env.TEST_DATABASE_URL) process.env.DB_SCHEMA = `it_${path.basename(__filename, '.test.js').replace(/\W/g, '_').toLowerCase()}_${Date.now()}`;
 
 jest.setTimeout(30000);
 

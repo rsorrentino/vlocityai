@@ -6,7 +6,6 @@
  */
 
 const { Sequelize } = require('sequelize');
-const path = require('path');
 const logger = require('../server/utils/logger');
 
 // Database configuration

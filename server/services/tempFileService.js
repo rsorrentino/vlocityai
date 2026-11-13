@@ -304,7 +304,7 @@ class TempFileService {
       tempDir: this.tempDir
     };
 
-    for (const [jobId, files] of this.trackedFiles) {
+    for (const files of this.trackedFiles.values()) {
       stats.totalFiles += files.size;
       
       for (const filePath of files) {

@@ -108,9 +108,6 @@ const run = async () => {
     REACT_APP_API_PORT: String(backendPort),
     REACT_APP_WS_PORT: String(backendPort),
     REACT_APP_API_URL: `http://localhost:${backendPort}`,
-    WDS_SOCKET_HOST: 'localhost',
-    WDS_SOCKET_PORT: String(frontendPort),
-    WDS_SOCKET_PATH: '/ws',
   };
 
   const backend = spawnProcess(['run', 'dev'], backendEnv, process.cwd());

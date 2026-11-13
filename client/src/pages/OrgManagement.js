@@ -13,6 +13,8 @@ import {
 } from '@mui/icons-material';
 import axios from 'axios';
 import ConfirmDialog from '../components/ConfirmDialog';
+import ConnectOrgDialog from '../components/ConnectOrgDialog';
+import { useAuth } from '../contexts/AuthContext';
 
 const ENVIRONMENTS = ['dev', 'uat', 'prod', 'staging'];
 
@@ -57,6 +59,9 @@ const OrgManagement = () => {
 
   // Confirm delete dialog
   const [confirmDialog, setConfirmDialog] = useState({ open: false });
+  const [connectOpen, setConnectOpen] = useState(false);
+  const { hasPermission } = useAuth();
+  const canManageOrgs = hasPermission('orgs', 'write');
 
   // Sort
   const [orderBy, setOrderBy]         = useState('alias');
@@ -200,18 +205,24 @@ const OrgManagement = () => {
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4">Organization Management</Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<Add />} onClick={() => { setAddDialog(true); setAddUsername(''); }}>
-            Add Manually
-          </Button>
-          <Button variant="contained" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>
-            {syncing ? 'Syncing…' : 'Sync from CLI'}
-          </Button>
-        </Box>
+        {canManageOrgs && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <Button variant="contained" startIcon={<Add />} onClick={() => setConnectOpen(true)}>
+              Connect org
+            </Button>
+            <Button variant="outlined" onClick={() => { setAddDialog(true); setAddUsername(''); }}>
+              Add by username
+            </Button>
+            <Button variant="outlined" startIcon={<Sync />} onClick={handleSync} disabled={syncing}>
+              {syncing ? 'Syncing…' : 'Sync from CLI'}
+            </Button>
+          </Box>
+        )}
       </Box>
 
       <Alert severity="info" sx={{ mb: 3 }}>
-        <strong>Sync from CLI</strong> imports all orgs authenticated via <code>sf org login web</code>.
+        <strong>Connect org</strong> authorises a Salesforce org from your browser (works on a shared server or in Docker).
+        <strong> Sync from CLI</strong> imports orgs already authorised in the Salesforce CLI on the server.
         Editing an org's label, environment, or notes only affects this app — not Salesforce or the CLI.
       </Alert>
 
@@ -368,7 +379,7 @@ const OrgManagement = () => {
         <DialogTitle>Add Org Manually</DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            The org must already be authenticated via <code>sf org login web</code>.
+            The org must already be authorised in the Salesforce CLI on the server. Otherwise use <strong>Connect org</strong>.
             Use <strong>Sync from CLI</strong> to import all authenticated orgs at once.
           </Alert>
           <TextField
@@ -446,6 +457,14 @@ const OrgManagement = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      <ConnectOrgDialog
+        open={connectOpen}
+        onClose={() => setConnectOpen(false)}
+        onConnected={(org) => {
+          showSnack(`Connected ${org?.username || 'org'}`, 'success');
+          fetchOrgs();
+        }}
+      />
     </Box>
   );
 };

@@ -203,9 +203,17 @@ class AuthService {
   /**
    * Update user (admin or self)
    */
-  async updateUser(userId, updateData) {
+  /**
+   * @param {string} userId
+   * @param {object} updateData
+   * @param {{privileged?: boolean}} [opts] privileged=true (admin user management)
+   *   may change role/isActive; self-service profile updates may not.
+   */
+  async updateUser(userId, updateData, { privileged = false } = {}) {
     try {
-      const allowedFields = ['firstName', 'lastName', 'email', 'role', 'isActive', 'preferences'];
+      const allowedFields = privileged
+        ? ['firstName', 'lastName', 'email', 'role', 'isActive', 'preferences']
+        : ['firstName', 'lastName', 'email', 'preferences'];
       const filteredData = {};
 
       Object.keys(updateData).forEach(key => {
@@ -231,6 +239,12 @@ class AuthService {
         throw new ValidationError('User not found');
       }
 
+      const losesAdmin = user.role === 'admin' && user.isActive !== false
+        && ((filteredData.role && filteredData.role !== 'admin') || filteredData.isActive === false);
+      if (losesAdmin && await this.countActiveAdmins() <= 1) {
+        throw new ValidationError('Cannot remove the last active administrator');
+      }
+
       Object.assign(user, filteredData);
 
       if (filteredData.role && !updateData.permissions) {
@@ -238,11 +252,12 @@ class AuthService {
       }
 
       await user.save();
+      require('../middleware/accessPolicy').clearAccessCache(user.id);
 
       logger.logOperation('User updated', { userId: user.id, username: user.username, updatedFields: Object.keys(filteredData) });
       return this.sanitizeUser(user);
     } catch (error) {
-      logger.logError(error, { operation: 'updateUser', userId, updateData });
+      logger.logError(error, { operation: 'updateUser', userId, fields: Object.keys(updateData || {}) });
       throw error;
     }
   }
@@ -282,7 +297,11 @@ class AuthService {
         throw new ValidationError('User not found');
       }
 
+      if (user.role === 'admin' && user.isActive !== false && await this.countActiveAdmins() <= 1) {
+        throw new ValidationError('Cannot delete the last active administrator');
+      }
       await user.destroy();
+      require('../middleware/accessPolicy').clearAccessCache(user.id);
       logger.logOperation('User deleted', { userId, username: user.username });
     } catch (error) {
       logger.logError(error, { operation: 'deleteUser', userId });
@@ -310,6 +329,10 @@ class AuthService {
       logger.logError(error, { operation: 'resetPassword', userId });
       throw error;
     }
+  }
+
+  async countActiveAdmins() {
+    return User.count({ where: { role: 'admin', isActive: true } });
   }
 
   /**

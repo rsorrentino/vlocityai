@@ -3,7 +3,6 @@ const router = express.Router();
 const { asyncHandler, ValidationError, NotFoundError } = require('../middleware/errorHandler');
 const catalogManagerService = require('../services/catalogManagerService');
 const rollbackService = require('../services/rollbackService');
-const logger = require('../utils/logger');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper — extract username and validate it is present

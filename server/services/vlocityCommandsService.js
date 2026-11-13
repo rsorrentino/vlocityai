@@ -5,8 +5,6 @@
 
 const logger = require('../utils/logger');
 const vlocityService = require('./vlocityService');
-const path = require('path');
-const fs = require('fs-extra');
 
 class VlocityCommandsService {
   constructor() {

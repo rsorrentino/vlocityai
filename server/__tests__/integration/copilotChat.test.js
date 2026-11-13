@@ -101,7 +101,7 @@ beforeAll(async () => {
     GITHUB_BASE_URL: baseUrl,
     GITHUB_API_URL: baseUrl,
     DATA_DIR: tmpDir,
-    DATABASE_URL: 'sqlite::memory:',
+    DATABASE_URL: process.env.TEST_DATABASE_URL || 'sqlite::memory:',
     ENABLE_AUDIT_LOGGING: 'false',
     ADMIN_USERNAME: 'copilotadmin',
     ADMIN_EMAIL: 'copilotadmin@example.com',
@@ -109,6 +109,7 @@ beforeAll(async () => {
     AI_HTTP_PROXY: 'false',
     PATH: `${binDir}${path.delimiter}${process.env.PATH}`,
   });
+  if (process.env.TEST_DATABASE_URL) process.env.DB_SCHEMA = `it_${path.basename(__filename, '.test.js').replace(/\W/g, '_').toLowerCase()}_${Date.now()}`;
   delete process.env.GITHUB_COPILOT_TOKEN;
   delete process.env.COPILOT_USE_LOCAL_TOKEN;
 
@@ -156,7 +157,10 @@ describe('GitHub Copilot chat (end to end)', () => {
     expect(status.body).toMatchObject({ connected: true, source: 'user', accountLogin: 'octocat', apiBase: `${baseUrl}/copilot` });
 
     const { sequelize } = require('../../services/databaseService');
-    const [rows] = await sequelize.query('SELECT encrypted_token FROM ai_credentials');
+    const { quotedTable } = require('../../db/migrationHelpers');
+    const rows = await sequelize.query(`SELECT encrypted_token FROM ${quotedTable(sequelize.getQueryInterface(), 'ai_credentials')}`, {
+      type: require('sequelize').QueryTypes.SELECT,
+    });
     expect(rows).toHaveLength(1);
     expect(rows[0].encrypted_token).not.toContain('gho_mock_user_token');
   });

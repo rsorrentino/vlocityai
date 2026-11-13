@@ -330,9 +330,9 @@ router.post(
     const { fileType, filePath, orgUsername } = job.meta || {};
     if (!filePath) throw new ValidationError('No file associated with this job');
 
-    let rows, validationResult, normalisedRows;
+    let validationResult, normalisedRows;
 
-    const { headers: _h, rows: rawRows } = serviceCreationService.parseCSV(filePath);
+    const { rows: rawRows } = serviceCreationService.parseCSV(filePath);
 
     if (fileType === 'price') {
       validationResult = serviceCreationService.validatePriceRows(rawRows);
@@ -1246,15 +1246,6 @@ router.post(
     // Build records for bulk upsert using Id as the key
     const records = updates.map(u => ({ Id: u.productId, ...u.data }));
     const { results, errors } = await sfUpsertBulk(username, 'Product2', 'Id', records);
-
-    // Map outcomes back to SKUs in original order
-    let successIdx = 0;
-    let errorIdx = 0;
-    const skuResults = updates.map(u => {
-      // sfUpsertBulk doesn't preserve order in results/errors arrays so we
-      // check the flat totals and return per-record based on position in results
-      return { sku: u.sku, productId: u.productId };
-    });
 
     logger.logOperation('Staging → Product2 apply', {
       username, total: updates.length, updated: results.length, errors: errors.length,

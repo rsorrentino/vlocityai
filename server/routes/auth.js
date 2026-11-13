@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
-const { authenticate, adminOnly, requirePermission } = require('../middleware/auth');
+const { authenticate, adminOnly } = require('../middleware/auth');
 const authService = require('../services/authService');
 const logger = require('../utils/logger');
 
@@ -479,7 +479,7 @@ router.post('/users', authenticate, adminOnly, asyncHandler(async (req, res) => 
  */
 router.put('/users/:userId', authenticate, adminOnly, asyncHandler(async (req, res) => {
   const { userId } = req.params;
-  const user = await authService.updateUser(userId, req.body);
+  const user = await authService.updateUser(userId, req.body, { privileged: true });
   
   res.json({
     success: true,

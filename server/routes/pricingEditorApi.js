@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
 const salesforceService = require('../services/salesforceService');
-const vlocityCommandsService = require('../services/vlocityCommandsService');
-const validationService = require('../services/validationService');
 const logger = require('../utils/logger');
 
 /**
@@ -232,7 +230,7 @@ router.get('/objects/:objectType/:objectId', asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/validate-object', asyncHandler(async (req, res) => {
-  const { objectType, objectData, orgUsername, orgType } = req.body;
+  const { objectType, objectData, orgUsername } = req.body;
 
   if (!objectType || !objectData || !orgUsername) {
     throw new ValidationError('objectType, objectData, and orgUsername are required');
@@ -419,7 +417,7 @@ router.post('/validate-object', asyncHandler(async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/create-related-objects', asyncHandler(async (req, res) => {
-  const { objectType, objectData, orgUsername, orgType } = req.body;
+  const { objectType, objectData, orgUsername } = req.body;
 
   if (!objectType || !objectData || !orgUsername) {
     throw new ValidationError('objectType, objectData, and orgUsername are required');

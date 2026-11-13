@@ -20,12 +20,12 @@ class ErrorBoundary extends React.Component {
     });
 
     // Log error to console in development
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.error('ErrorBoundary caught an error:', error, errorInfo);
     }
 
     // Send to Sentry error tracking service
-    if (process.env.REACT_APP_SENTRY_DSN) {
+    if (import.meta.env.REACT_APP_SENTRY_DSN) {
       Sentry.captureException(error, {
         contexts: {
           react: {
@@ -53,7 +53,7 @@ class ErrorBoundary extends React.Component {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
                 We're sorry, but something unexpected happened. Please try refreshing the page.
               </Typography>
-              {process.env.NODE_ENV === 'development' && this.state.error && (
+              {import.meta.env.DEV && this.state.error && (
                 <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.100', borderRadius: 1, textAlign: 'left' }}>
                   <Typography variant="caption" component="pre" sx={{ fontSize: '0.75rem', overflow: 'auto' }}>
                     {this.state.error.toString()}

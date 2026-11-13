@@ -1,5 +1,4 @@
 const Joi = require('joi');
-const path = require('path');
 
 
 // Environment validation schema

@@ -112,7 +112,7 @@ class YamlConfigService {
    */
   async createConfig(configData) {
     try {
-      const { name, type, environment, queries, settings, projectPath } = configData;
+      const { type, environment, queries, settings, projectPath } = configData;
       
       // Generate filename
       const envSuffix = environment && environment !== 'default' ? `-${environment}` : '';
