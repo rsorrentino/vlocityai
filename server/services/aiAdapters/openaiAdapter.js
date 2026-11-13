@@ -1,5 +1,5 @@
 const OpenAI = require('openai');
-const { toOpenAITools, executeTool } = require('../vlocityAgentTools');
+const { toOpenAITools, executeTool: defaultExecuteTool, TOOL_DEFINITIONS } = require('../vlocityAgentTools');
 const copilot = require('./githubCopilot');
 
 const MAX_TOOL_ROUNDS = 10;
@@ -135,14 +135,30 @@ async function runOpenAIStream({
   onToolEnd,
   clientFactory,
   credentialStore,
+  tools = TOOL_DEFINITIONS,
+  executeTool = defaultExecuteTool,
 }) {
   const defaults = ADAPTER_DEFAULTS[adapterType] || ADAPTER_DEFAULTS.openai;
   const resolvedModel = model || defaults.model;
+  const makeClient = (opts) => (clientFactory ? clientFactory(opts) : new OpenAI(opts));
 
-  const clientOptions = await resolveClientOptions({ adapterType, apiKey, baseURL, userId, credentialStore });
-  const client = clientFactory ? clientFactory(clientOptions) : new OpenAI(clientOptions);
+  let client = makeClient(await resolveClientOptions({ adapterType, apiKey, baseURL, userId, credentialStore }));
 
-  const openaiTools = toOpenAITools(require('../vlocityAgentTools').TOOL_DEFINITIONS);
+  // Copilot session tokens are short-lived: if one expires mid-conversation,
+  // fetch a fresh one and retry the request once.
+  const createCompletion = async (params) => {
+    try {
+      return await client.chat.completions.create(params);
+    } catch (error) {
+      if (adapterType !== 'copilot' || error?.status !== 401) throw error;
+      const { token } = await resolveCopilotGitHubToken({ apiKey, userId, credentialStore });
+      const session = await copilot.getCopilotSession(token, { force: true });
+      client = makeClient({ apiKey: session.token, baseURL: session.apiBase, defaultHeaders: copilot.copilotHeaders() });
+      return client.chat.completions.create(params);
+    }
+  };
+
+  const openaiTools = toOpenAITools(tools);
 
   // Build initial message array
   let history = [
@@ -151,16 +167,20 @@ async function runOpenAIStream({
   ];
 
   let fullResponse = '';
-  let tokensUsed = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
   const toolCalls = [];
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-    const stream = await client.chat.completions.create({
+    const stream = await createCompletion({
       model: resolvedModel,
       messages: history,
       tools: openaiTools,
       tool_choice: 'auto',
       stream: true,
+      // Ask for token usage in the final chunk (not sent to Copilot, whose
+      // API does not document the option)
+      ...(adapterType === 'copilot' ? {} : { stream_options: { include_usage: true } }),
     });
 
     let roundText = '';
@@ -199,7 +219,8 @@ async function runOpenAIStream({
       }
 
       if (chunk.usage) {
-        tokensUsed += (chunk.usage.prompt_tokens || 0) + (chunk.usage.completion_tokens || 0);
+        inputTokens += chunk.usage.prompt_tokens || 0;
+        outputTokens += chunk.usage.completion_tokens || 0;
       }
     }
 
@@ -242,7 +263,14 @@ async function runOpenAIStream({
     history = [...history, ...toolMessages];
   }
 
-  return { content: fullResponse, tokensUsed, toolCalls };
+  return {
+    content: fullResponse,
+    tokensUsed: inputTokens + outputTokens,
+    inputTokens,
+    outputTokens,
+    model: resolvedModel,
+    toolCalls,
+  };
 }
 
 module.exports = {

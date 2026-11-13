@@ -13,7 +13,7 @@ jest.setTimeout(60000);
 
 const EXPECTED_TABLES = [
   'users', 'jobs', 'org_analyses', 'orgs', 'system_statuses', 'sfdmu_configs',
-  'audit_logs', 'chat_conversations', 'chat_messages', 'ai_credentials',
+  'audit_logs', 'chat_conversations', 'chat_messages', 'ai_credentials', 'ai_pending_actions',
 ];
 
 let tmpDir;
@@ -96,9 +96,9 @@ describe('database migrations (SQLite)', () => {
     await migrator.up();
     const [last] = await migrator.down();
     expect(last.name).toBe(listMigrationFiles().at(-1));
-    expect(await sqliteTables(db)).not.toContain('ai_credentials');
+    expect(await sqliteTables(db)).not.toContain('ai_pending_actions');
     await migrator.up();
-    expect(await sqliteTables(db)).toContain('ai_credentials');
+    expect(await sqliteTables(db)).toContain('ai_pending_actions');
     await db.close();
   });
 

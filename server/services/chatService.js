@@ -3,6 +3,18 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 const { runAnthropicStream } = require('./aiAdapters/anthropicAdapter');
 const { runOpenAIStream, SUPPORTED_ADAPTERS: OPENAI_COMPATIBLE_ADAPTERS } = require('./aiAdapters/openaiAdapter');
+const { TOOL_DEFINITIONS, executeTool: executeReadTool } = require('./vlocityAgentTools');
+const aiWriteActions = require('./aiWriteActions');
+const { estimateCost } = require('../config/aiPricing');
+
+function audit(entry) {
+  try {
+    const getAuditService = require('./auditService');
+    getAuditService().log(entry).catch(() => {});
+  } catch {
+    /* audit is best effort */
+  }
+}
 
 // Lazy-load DB to avoid circular imports at startup
 function getDb() {
@@ -289,7 +301,13 @@ async function getConversationWithMessages(id, userId) {
     `SELECT * FROM ${getTableRef(db, 'chat_messages')} WHERE conversation_id = :id ORDER BY created_at ASC`,
     { replacements: { id } }
   );
-  return { ...convRows[0], messages: msgRows.map(normalizeMessageRow) };
+  let actions = [];
+  try {
+    actions = await aiWriteActions.listActionsForConversation(id);
+  } catch {
+    actions = [];
+  }
+  return { ...convRows[0], messages: msgRows.map(normalizeMessageRow), actions };
 }
 
 async function deleteConversation(id, userId) {
@@ -311,7 +329,7 @@ async function updateConversationTitle(id, userId, title) {
   );
 }
 
-async function saveMessage({ conversationId, role, content, toolCalls, toolResults, tokensUsed }) {
+async function saveMessage({ conversationId, role, content, toolCalls, toolResults, tokensUsed, usage }) {
   const db = getDb();
   await ensureChatTables();
   const id = uuidv4();
@@ -323,6 +341,11 @@ async function saveMessage({ conversationId, role, content, toolCalls, toolResul
     tool_calls: serializeJsonField(db, toolCalls),
     tool_results: serializeJsonField(db, toolResults),
     tokens_used: tokensUsed || null,
+    input_tokens: usage?.inputTokens ?? null,
+    output_tokens: usage?.outputTokens ?? null,
+    model: usage?.model || null,
+    adapter: usage?.adapter || null,
+    cost_usd: usage?.costUsd ?? null,
     created_at: new Date(),
   }]);
   return id;
@@ -346,7 +369,7 @@ function sseWrite(res, data) {
 
 // ── Main streaming function ───────────────────────────────────────────────────
 
-async function streamMessage({ res, conversationId, userMessage, userId, adapter, adapterConfig, orgUsername }) {
+async function streamMessage({ res, conversationId, userMessage, userId, user, adapter, adapterConfig, orgUsername }) {
   // Set SSE headers
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -389,10 +412,39 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
     // Callbacks for SSE events
     const onToken = text => sseWrite(res, { type: 'token', content: text });
     const onToolStart = (name, args) => sseWrite(res, { type: 'tool_start', tool: name, args });
-    const onToolEnd = (name, result) => sseWrite(res, { type: 'tool_end', tool: name, result: result.slice(0, 500) });
+    const onToolEnd = (name, result) => sseWrite(res, { type: 'tool_end', tool: name, result: String(result).slice(0, 500) });
 
     let result;
     const adapterType = adapter || conv.adapter || 'anthropic';
+    const auditBase = { userId, username: user?.username, resourceType: 'chat_conversation', resourceId: conversationId };
+
+    // Developers/admins also get the write tool (proposals need confirmation)
+    const allowWrites = aiWriteActions.canWrite(user);
+    const tools = allowWrites ? [...TOOL_DEFINITIONS, aiWriteActions.TOOL_DEFINITION] : TOOL_DEFINITIONS;
+
+    const executeTool = async (name, input, org) => {
+      const targetOrg = input?.org_username || org;
+      if (name === aiWriteActions.TOOL_NAME) {
+        if (!allowWrites) return 'Error: you are not allowed to propose data changes.';
+        try {
+          const proposal = aiWriteActions.validateProposal(input);
+          if (!targetOrg) return 'Error: no Salesforce org is selected.';
+          const current = await aiWriteActions.readCurrentValues({ ...proposal, orgUsername: targetOrg });
+          const action = await aiWriteActions.createPendingAction({
+            conversationId, userId, orgUsername: targetOrg, proposal, before: current.before, recordName: current.name,
+          });
+          sseWrite(res, { type: 'confirmation_required', action });
+          audit({ ...auditBase, action: 'ai_write_proposed', metadata: { actionId: action.id, sobject: proposal.sobject, recordId: proposal.recordId, fields: Object.keys(proposal.fields), org: targetOrg } });
+          return `Proposed change ${action.id} is waiting for the user's approval in the chat. Nothing has been changed yet. `
+            + 'Tell the user to review and approve or reject it.';
+        } catch (error) {
+          return `Error: ${error.message}`;
+        }
+      }
+      const output = await executeReadTool(name, input, targetOrg);
+      audit({ ...auditBase, action: 'ai_tool_call', metadata: { tool: name, org: targetOrg, input: JSON.stringify(input || {}).slice(0, 1000), error: /^Error/.test(String(output)) } });
+      return output;
+    };
 
     if (adapterType === 'anthropic') {
       result = await runAnthropicStream({
@@ -404,6 +456,8 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
         onToken,
         onToolStart,
         onToolEnd,
+        tools,
+        executeTool,
       });
     } else if (OPENAI_COMPATIBLE_ADAPTERS.includes(adapterType)) {
       result = await runOpenAIStream({
@@ -418,11 +472,24 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
         onToken,
         onToolStart,
         onToolEnd,
+        tools,
+        executeTool,
       });
     } else {
       sseWrite(res, { type: 'error', message: `Unknown adapter: ${adapterType}` });
       return;
     }
+
+    const { costUsd } = estimateCost({
+      adapter: adapterType, model: result.model, inputTokens: result.inputTokens, outputTokens: result.outputTokens,
+    });
+    const usage = {
+      inputTokens: result.inputTokens || 0,
+      outputTokens: result.outputTokens || 0,
+      model: result.model || null,
+      adapter: adapterType,
+      costUsd,
+    };
 
     // Save assistant response
     const msgId = await saveMessage({
@@ -432,6 +499,7 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
       toolCalls: result.toolCalls.length ? result.toolCalls.map(tc => ({ name: tc.name, input: tc.input })) : null,
       toolResults: result.toolCalls.length ? result.toolCalls.map(tc => ({ name: tc.name, result: tc.result })) : null,
       tokensUsed: result.tokensUsed,
+      usage,
     });
 
     await touchConversation(conversationId);
@@ -442,9 +510,16 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
       await updateConversationTitle(conversationId, userId, title);
     }
 
-    sseWrite(res, { type: 'done', messageId: msgId, tokensUsed: result.tokensUsed });
+    audit({
+      ...auditBase,
+      action: 'ai_chat_message',
+      metadata: { adapter: adapterType, model: usage.model, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, costUsd, tools: result.toolCalls.map(tc => tc.name), org: orgToUse },
+    });
+
+    sseWrite(res, { type: 'done', messageId: msgId, tokensUsed: result.tokensUsed, usage });
   } catch (err) {
     logger.logError(err, { operation: 'streamMessage', conversationId });
+    audit({ userId, username: user?.username, resourceType: 'chat_conversation', resourceId: conversationId, action: 'ai_chat_error', status: 'failure', errorMessage: err.message, severity: 'warning' });
     sseWrite(res, { type: 'error', message: err.message });
   } finally {
     clearInterval(heartbeat);
@@ -452,7 +527,73 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
   }
 }
 
+/**
+ * Token usage and estimated cost.
+ * @param {{userId?: string, days?: number}} opts – omit userId for everyone (admin)
+ */
+async function getUsage({ userId, days = 30 } = {}) {
+  const db = getDb();
+  await ensureChatTables();
+  const since = new Date(Date.now() - Math.max(1, Math.min(days, 366)) * 86400000);
+  const msgs = getTableRef(db, 'chat_messages');
+  const convs = getTableRef(db, 'chat_conversations');
+  const rows = await db.query(
+    `SELECT c.user_id AS user_id, m.adapter AS adapter, m.model AS model,
+            COUNT(*) AS messages,
+            COALESCE(SUM(m.input_tokens), 0) AS input_tokens,
+            COALESCE(SUM(m.output_tokens), 0) AS output_tokens,
+            SUM(m.cost_usd) AS cost_usd,
+            SUM(CASE WHEN m.cost_usd IS NULL THEN 1 ELSE 0 END) AS unpriced
+       FROM ${msgs} m JOIN ${convs} c ON c.id = m.conversation_id
+      WHERE m.role = 'assistant' AND m.model IS NOT NULL AND m.created_at >= :since ${userId ? 'AND c.user_id = :userId' : ''}
+      GROUP BY c.user_id, m.adapter, m.model
+      ORDER BY c.user_id`,
+    { replacements: { since, userId: userId ? String(userId) : null }, type: require('sequelize').QueryTypes.SELECT }
+  );
+  const byModel = rows.map(r => ({
+    userId: r.user_id,
+    adapter: r.adapter || 'unknown',
+    model: r.model || 'unknown',
+    messages: Number(r.messages) || 0,
+    inputTokens: Number(r.input_tokens) || 0,
+    outputTokens: Number(r.output_tokens) || 0,
+    costUsd: r.cost_usd === null || r.cost_usd === undefined ? null : Math.round(Number(r.cost_usd) * 1e6) / 1e6,
+    unpricedMessages: Number(r.unpriced) || 0,
+  }));
+  const totals = byModel.reduce((t, r) => ({
+    messages: t.messages + r.messages,
+    inputTokens: t.inputTokens + r.inputTokens,
+    outputTokens: t.outputTokens + r.outputTokens,
+    costUsd: Math.round((t.costUsd + (r.costUsd || 0)) * 1e6) / 1e6,
+    unpricedMessages: t.unpricedMessages + r.unpricedMessages,
+  }), { messages: 0, inputTokens: 0, outputTokens: 0, costUsd: 0, unpricedMessages: 0 });
+  return { since: since.toISOString(), days, totals, byModel };
+}
+
+/** Approve or reject an AI-proposed change and record it in the conversation. */
+async function decideAction({ actionId, user, approve }) {
+  const action = await aiWriteActions.decide({ actionId, user, approve });
+  const verb = { applied: 'Applied', rejected: 'Rejected', failed: 'Failed to apply' }[action.status] || action.status;
+  const detail = action.status === 'failed' && action.result?.error ? ` – ${action.result.error}` : '';
+  await saveMessage({ conversationId: action.conversationId, role: 'assistant', content: `${verb}: ${action.summary}${detail}` });
+  await touchConversation(action.conversationId);
+  audit({
+    userId: user.userId,
+    username: user.username,
+    resourceType: 'ai_pending_action',
+    resourceId: action.id,
+    action: approve ? 'ai_write_approved' : 'ai_write_rejected',
+    status: action.status === 'failed' ? 'failure' : 'success',
+    errorMessage: action.result?.error,
+    metadata: { status: action.status, org: action.orgUsername, sobject: action.args?.sobject, recordId: action.args?.recordId, fields: action.args?.fields },
+    severity: approve ? 'warning' : 'info',
+  });
+  return action;
+}
+
 module.exports = {
+  getUsage,
+  decideAction,
   createConversation,
   listConversations,
   getConversationWithMessages,

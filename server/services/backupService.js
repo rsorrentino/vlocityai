@@ -48,6 +48,29 @@ function schemaName() {
   return process.env.DB_SCHEMA || 'vlocity_datapack_manager';
 }
 
+/**
+ * Copy a pg_dump file, removing top-level "SET <name> = ...;" lines whose
+ * setting the target server does not know. Streams, so large dumps are fine.
+ * @returns {Promise<string[]>} the settings that were dropped
+ */
+async function stripUnknownSettings(source, target, knownSettings) {
+  const readline = require('readline');
+  const dropped = new Set();
+  const input = fs.createReadStream(source, { encoding: 'utf8' });
+  const output = fs.createWriteStream(target, { encoding: 'utf8' });
+  const lines = readline.createInterface({ input, crlfDelay: Infinity });
+  for await (const line of lines) {
+    const m = /^SET\s+([a-z_.]+)\s*=/i.exec(line);
+    if (m && !knownSettings.has(m[1].toLowerCase())) {
+      dropped.add(m[1]);
+      continue;
+    }
+    if (!output.write(`${line}\n`)) await new Promise((r) => output.once('drain', r));
+  }
+  await new Promise((resolve, reject) => output.end((err) => (err ? reject(err) : resolve())));
+  return [...dropped];
+}
+
 async function zipDirectory(sourceDir, zipPath) {
   await new Promise((resolve, reject) => {
     const output = fs.createWriteStream(zipPath);
@@ -166,7 +189,14 @@ async function restoreBackup(databaseService, filename) {
       const sqlFile = path.join(work, 'database.sql');
       if (!(await fs.pathExists(sqlFile))) throw new ValidationError('Invalid backup: database.sql missing');
       const { args, env } = pgConnection(sequelize);
-      await runCommand('psql', [...args, '--set', 'ON_ERROR_STOP=1', '--single-transaction', '--file', sqlFile], {
+      // A dump written by a newer pg_dump can contain SET statements for
+      // settings this server does not have (e.g. transaction_timeout from
+      // PostgreSQL 17+ on a 16 server). Drop those so the restore can run.
+      const known = await sequelize.query('SELECT name FROM pg_settings', { type: sequelize.QueryTypes.SELECT });
+      const safeFile = path.join(work, 'database.restore.sql');
+      const dropped = await stripUnknownSettings(sqlFile, safeFile, new Set(known.map((r) => (Array.isArray(r) ? r[0] : r.name))));
+      if (dropped.length) logger.info('Ignoring settings unknown to this PostgreSQL server', { settings: dropped });
+      await runCommand('psql', [...args, '--set', 'ON_ERROR_STOP=1', '--single-transaction', '--file', safeFile], {
         env, timeout: 30 * 60 * 1000, rejectOnError: true,
       });
       await databaseService.disconnect();
@@ -192,4 +222,4 @@ async function deleteBackup(filename) {
   await fs.remove(file);
 }
 
-module.exports = { createBackup, listBackups, restoreBackup, deleteBackup, resolveBackupFile, backupDir };
+module.exports = { createBackup, listBackups, restoreBackup, deleteBackup, resolveBackupFile, backupDir, stripUnknownSettings };
