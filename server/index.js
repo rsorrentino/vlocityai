@@ -103,6 +103,7 @@ const notificationRoutes = require('./routes/notifications');
 const pipelineRoutes = require('./routes/pipelines');
 const serviceCreationRoutes = require('./routes/serviceCreation');
 const chatRoutes = require('./routes/chat');
+const orgAuthRoutes = require('./routes/orgAuth');
 
 const app = express();
 let servicesReady = process.env.NODE_ENV === 'test';
@@ -353,6 +354,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/service-creation', serviceCreationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/org-auth', orgAuthRoutes);
 
 // Sentry error handler (must be before other error middleware)
 if (process.env.SENTRY_DSN) {
