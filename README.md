@@ -1154,16 +1154,18 @@ npm run check-cli-tools          # Show which CLI tools are installed
 npm start                        # Start production server
 npm run dev                      # Start development server
 npm run dev-full                 # Start both backend and frontend
-npm run build                    # Build React frontend
+npm run build                    # Build the React client (Vite, output in client/build)
 
 # Testing
 npm test                         # Run all tests with coverage
 npm run test:unit                # Unit tests
 npm run test:integration         # Integration tests (real app, in-memory SQLite)
 node scripts/smoke-test.js       # Start the server and check health/auth/login
+npm --prefix client test         # Client tests (Vitest)
 
 # Code Quality
-npm run lint                     # Run ESLint
+npm run lint                     # Run ESLint (server)
+npm --prefix client run lint     # Run ESLint (client, 0 warnings allowed)
 npm run format                   # Format code with Prettier
 
 # Database
@@ -1257,8 +1259,9 @@ Only an initial administrator is created (see *Quick Start*). Older versions shi
 
 ```bash
 npm run dev-full
-# Frontend: http://localhost:3001
-# Backend API: http://localhost:3000/api
+# Frontend (Vite dev server): http://localhost:3000
+# Backend API: http://localhost:3001/api
+# Ports move to the next free one if taken; /api and /ws/jobs are proxied to the backend.
 ```
 
 ### **Production Mode**
@@ -1266,7 +1269,7 @@ npm run dev-full
 ```bash
 npm run build
 npm start
-# Application: http://localhost:3000
+# Application: http://localhost:3001 (or PORT)
 ```
 
 ### **Docker Mode**

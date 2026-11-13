@@ -7,10 +7,10 @@ import * as Sentry from '@sentry/react';
 import App from './App';
 
 // Initialize Sentry for error tracking
-if (process.env.REACT_APP_SENTRY_DSN) {
+if (import.meta.env.REACT_APP_SENTRY_DSN) {
   Sentry.init({
-    dsn: process.env.REACT_APP_SENTRY_DSN,
-    environment: process.env.NODE_ENV || 'development',
+    dsn: import.meta.env.REACT_APP_SENTRY_DSN,
+    environment: import.meta.env.MODE,
     integrations: [
       new Sentry.BrowserTracing(),
       new Sentry.Replay({
@@ -18,7 +18,7 @@ if (process.env.REACT_APP_SENTRY_DSN) {
         blockAllMedia: true,
       }),
     ],
-    tracesSampleRate: process.env.NODE_ENV === 'production' ? 0.1 : 1.0,
+    tracesSampleRate: import.meta.env.PROD ? 0.1 : 1.0,
     replaysSessionSampleRate: 0.1,
     replaysOnErrorSampleRate: 1.0,
   });

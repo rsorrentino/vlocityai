@@ -405,7 +405,7 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   const frontendPort = parseInt(process.env.CLIENT_PORT, 10);
 
-  // If CLIENT_PORT is provided (dev-full mode), frontend should be served by react-scripts.
+  // If CLIENT_PORT is provided (dev-full mode), frontend is served by the Vite dev server.
   // Otherwise, keep legacy behavior and serve client/build from backend in development.
   if (!Number.isNaN(frontendPort)) {
     app.get('*', (req, res, next) => {

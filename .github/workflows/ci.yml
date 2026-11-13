@@ -89,7 +89,7 @@ jobs:
           SMOKE_DATABASE_URL: ${{ env.PG_URL }}
 
   client:
-    name: Client build
+    name: Client lint, tests and build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,11 +104,17 @@ jobs:
         run: npm ci --no-audit --no-fund
         working-directory: client
 
-      - name: Build (warnings are errors)
+      - name: Lint (warnings are errors)
+        run: npm run lint
+        working-directory: client
+
+      - name: Test
+        run: npm test
+        working-directory: client
+
+      - name: Build
         run: npm run build
         working-directory: client
-        env:
-          CI: 'true'
 
   docker:
     name: Docker image

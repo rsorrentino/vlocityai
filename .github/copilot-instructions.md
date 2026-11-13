@@ -31,15 +31,15 @@ npm run lint
 npm run format
 ```
 
-- `npm run build` runs `client/package.json`'s React build; if `react-scripts` is missing, run `npm run install-client` or `npm run setup` first.
+- `npm run build` runs the client's Vite build (output in `client/build`); if `vite` is missing, run `npm run install-client` or `npm run setup` first.
 - The Jest environment comes from `server/__tests__/setup.js`: tests force `NODE_ENV=test`, use `sqlite::memory:`, and disable Redis.
-- `npm run lint` lints `server/` and `scripts/` with `.eslintrc.cjs`; it must report 0 errors (CI enforces it). The React client is linted by `react-scripts build`.
+- `npm run lint` lints `server/` and `scripts/` with `.eslintrc.cjs`; it must report 0 errors (CI enforces it). The React client is linted with `npm --prefix client run lint` (0 warnings allowed) and tested with `npm --prefix client test` (Vitest).
 - CI (`.github/workflows/ci.yml`) runs lint, Jest and the smoke test on ubuntu, windows and macos runners, builds the client and the Docker image.
 
 ## High-level architecture
 
 - `server/index.js` is the composition root. It loads env/Sentry/security middleware, mounts all `/api/*` routes, exposes Swagger at `/api-docs`, and either serves `client/build` or redirects to the React dev server when `CLIENT_PORT` is set.
-- `scripts/dev-full-auto-ports.js` is the normal full-stack dev entrypoint. It finds free backend/frontend ports, sets `CLIENT_PORT` plus the `REACT_APP_*` variables, then launches the backend and CRA dev server together.
+- `scripts/dev-full-auto-ports.js` is the normal full-stack dev entrypoint. It finds free backend/frontend ports, sets `CLIENT_PORT` plus the `REACT_APP_*` variables, then launches the backend and the Vite dev server together.
 - Persistence is centralized in `server/services/databaseService.js`. PostgreSQL in schema `vlocity_datapack_manager` is the primary target; `data/vlocity_manager.db` is the fallback. `server/models/index.js` defines the Sequelize models once, and `databaseService.syncModels()` rebinds them to the active connection.
 - Long-running Salesforce/Vlocity work should go through the queueing layer, not ad hoc `spawn()` calls. `server/services/vlocityService.js` and `server/services/sfCliService.js` enqueue executions through `server/services/jobExecutionService.js`, which caps concurrency and supports aborting queued or running jobs.
 - Real-time job updates are a separate subsystem. `server/services/jobMonitor.js` exposes `/ws/jobs`, broadcasts progress/log events, and batches job logs before flushing them to storage.
