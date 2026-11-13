@@ -109,6 +109,7 @@
     "sqlite3": "^5.0.2",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
+    "undici": "^6.29.1",
     "unzipper": "^0.10.14",
     "uuid": "^9.0.1",
     "winston": "^3.11.0",

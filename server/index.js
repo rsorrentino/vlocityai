@@ -35,6 +35,7 @@ const slowDown = require('express-slow-down');
 const path = require('path');
 
 const logger = require('./utils/logger');
+require('./utils/httpProxy').configureHttpProxy(logger);
 const { errorHandler } = require('./middleware/errorHandler');
 const { validateEnvironment } = require('./utils/configValidator');
 const jobMonitor = require('./services/jobMonitor');
@@ -168,11 +169,15 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
 }));
 
-// Slow down middleware for additional protection
-app.use(slowDown({
+// Brute-force protection: progressively slow down repeated login attempts.
+// (Applied to the login endpoint only – slowing every request made the UI
+// sluggish after a few minutes of normal use.)
+app.use('/api/auth/login', slowDown({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  delayAfter: 50, // allow 50 requests per 15 minutes, then...
-  delayMs: () => 500 // begin adding 500ms of delay per request above 50 (v2 format)
+  delayAfter: 5, // first 5 attempts are immediate
+  delayMs: (used) => (used - 5) * 500, // then +500ms per extra attempt
+  maxDelayMs: 10000,
+  validate: { delayMs: false },
 }));
 
 // Rate limiting
@@ -518,7 +523,10 @@ const startServer = (port) => {
   });
 };
 
-startServer(DEFAULT_PORT);
+// Only listen when run directly (npm start / nodemon). Tests import the app.
+if (require.main === module) {
+  startServer(DEFAULT_PORT);
+}
 
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
@@ -555,7 +563,9 @@ const gracefulShutdown = async (signal) => {
   }
 };
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+if (require.main === module) {
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}
 
 module.exports = app;

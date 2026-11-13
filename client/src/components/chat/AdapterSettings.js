@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import axios from 'axios';
 import {
+  Autocomplete,
   Box,
   FormControl,
   InputLabel,
@@ -15,28 +17,60 @@ import {
   Tooltip,
   IconButton,
   Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
-import { Settings as SettingsIcon } from '@mui/icons-material';
+import { Settings as SettingsIcon, ExpandMore as ExpandMoreIcon } from '@mui/icons-material';
+import CopilotConnect from './CopilotConnect';
 
-const ADAPTERS = [
-  { value: 'anthropic', label: 'Anthropic (Claude)', defaultModel: 'claude-sonnet-4-6' },
-  { value: 'openai',    label: 'OpenAI (GPT-4o)',    defaultModel: 'gpt-4o' },
-  { value: 'copilot',   label: 'GitHub Copilot',     defaultModel: 'gpt-4o' },
-  { value: 'ollama',    label: 'Ollama (local)',      defaultModel: 'llama3.2' },
+export const ADAPTERS = [
+  { value: 'anthropic',     label: 'Anthropic (Claude)', short: 'Claude',        defaultModel: 'claude-sonnet-4-6' },
+  { value: 'copilot',       label: 'GitHub Copilot',     short: 'Copilot',       defaultModel: 'gpt-4.1' },
+  { value: 'github-models', label: 'GitHub Models',      short: 'GitHub Models', defaultModel: 'openai/gpt-4.1' },
+  { value: 'openai',        label: 'OpenAI',             short: 'OpenAI',        defaultModel: 'gpt-4o' },
+  { value: 'ollama',        label: 'Ollama (local)',     short: 'Ollama',        defaultModel: 'llama3.2' },
 ];
+
+const KEY_FIELDS = {
+  anthropic: { label: 'Anthropic API Key', placeholder: 'sk-ant-...', env: 'ANTHROPIC_API_KEY' },
+  openai: { label: 'OpenAI API Key', placeholder: 'sk-...', env: 'OPENAI_API_KEY' },
+  'github-models': {
+    label: 'GitHub token (models:read)',
+    placeholder: 'github_pat_...',
+    env: 'GITHUB_MODELS_TOKEN',
+    help: 'Fine-grained personal access token with the "Models: read" permission.',
+  },
+};
 
 const STORAGE_KEY = 'vlocity_chat_adapter_config';
 
 function loadConfig() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    const cfg = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    // Migrate the old single shared apiKey to a per-adapter key
+    if (cfg.apiKey && !cfg.apiKeys) {
+      cfg.apiKeys = { [cfg.adapter || 'anthropic']: cfg.apiKey };
+    }
+    delete cfg.apiKey;
+    return cfg;
   } catch {
     return {};
   }
 }
 
 function saveConfig(cfg) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+  } catch {
+    /* storage unavailable (private mode) – settings last for this session only */
+  }
+}
+
+/** API key the user entered for the given adapter (never shared across adapters). */
+export function getAdapterApiKey(config) {
+  const adapter = config.adapter || 'anthropic';
+  return config.apiKeys?.[adapter] || undefined;
 }
 
 export function useAdapterConfig() {
@@ -53,13 +87,62 @@ export function useAdapterConfig() {
   return [config, update];
 }
 
+function CopilotModelPicker({ value, onChange, connected }) {
+  const [models, setModels] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!connected) { setModels([]); return; }
+    setLoading(true);
+    axios.get('/api/chat/copilot/models')
+      .then(r => setModels(r.data.models || []))
+      .catch(() => setModels([]))
+      .finally(() => setLoading(false));
+  }, [connected]);
+
+  return (
+    <Autocomplete
+      freeSolo
+      options={models.map(m => m.id)}
+      getOptionLabel={(id) => {
+        const m = models.find(x => x.id === id);
+        return m && m.name !== id ? `${m.name} (${id})` : id;
+      }}
+      loading={loading}
+      value={value || ''}
+      onChange={(_, v) => onChange(v || '')}
+      onInputChange={(_, v, reason) => { if (reason === 'input') onChange(v); }}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          label="Model"
+          size="small"
+          placeholder="gpt-4.1"
+          helperText={connected ? 'Models available to your Copilot plan' : 'Sign in to list available models'}
+        />
+      )}
+    />
+  );
+}
+
 export default function AdapterSettings({ orgs = [], config, onConfigChange }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(config);
+  const [copilotConnected, setCopilotConnected] = useState(false);
 
   useEffect(() => { setDraft(config); }, [config]);
 
+  const draftAdapter = draft.adapter || 'anthropic';
   const currentAdapter = ADAPTERS.find(a => a.value === (config.adapter || 'anthropic')) || ADAPTERS[0];
+  const draftDefaults = ADAPTERS.find(a => a.value === draftAdapter) || ADAPTERS[0];
+  const keyField = KEY_FIELDS[draftAdapter];
+
+  const setDraftKey = (value) => setDraft(d => ({
+    ...d,
+    apiKeys: { ...(d.apiKeys || {}), [draftAdapter]: value || undefined },
+  }));
+
+  const handleCopilotStatus = useCallback((s) => setCopilotConnected(Boolean(s?.connected)), []);
 
   const handleSave = () => {
     onConfigChange(draft);
@@ -108,12 +191,16 @@ export default function AdapterSettings({ orgs = [], config, onConfigChange }) {
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>AI Adapter Settings</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <FormControl fullWidth>
+          <FormControl fullWidth sx={{ mt: 1 }}>
             <InputLabel>Adapter</InputLabel>
             <Select
-              value={draft.adapter || 'anthropic'}
+              value={draftAdapter}
               label="Adapter"
-              onChange={e => setDraft(d => ({ ...d, adapter: e.target.value, model: ADAPTERS.find(a => a.value === e.target.value)?.defaultModel }))}
+              onChange={e => setDraft(d => ({
+                ...d,
+                adapter: e.target.value,
+                model: ADAPTERS.find(a => a.value === e.target.value)?.defaultModel,
+              }))}
             >
               {ADAPTERS.map(a => (
                 <MenuItem key={a.value} value={a.value}>{a.label}</MenuItem>
@@ -121,55 +208,62 @@ export default function AdapterSettings({ orgs = [], config, onConfigChange }) {
             </Select>
           </FormControl>
 
-          <TextField
-            label="Model"
-            value={draft.model || ''}
-            onChange={e => setDraft(d => ({ ...d, model: e.target.value }))}
-            placeholder={ADAPTERS.find(a => a.value === (draft.adapter || 'anthropic'))?.defaultModel}
-            size="small"
-            fullWidth
-          />
+          {draftAdapter === 'copilot' && (
+            <CopilotConnect onStatusChange={handleCopilotStatus} />
+          )}
 
-          {(draft.adapter === 'anthropic' || !draft.adapter) && (
+          {draftAdapter === 'copilot' ? (
+            <CopilotModelPicker
+              value={draft.model}
+              connected={copilotConnected}
+              onChange={(model) => setDraft(d => ({ ...d, model }))}
+            />
+          ) : (
             <TextField
-              label="Anthropic API Key"
-              type="password"
-              value={draft.apiKey || ''}
-              onChange={e => setDraft(d => ({ ...d, apiKey: e.target.value }))}
-              placeholder="sk-ant-..."
+              label="Model"
+              value={draft.model || ''}
+              onChange={e => setDraft(d => ({ ...d, model: e.target.value }))}
+              placeholder={draftDefaults.defaultModel}
               size="small"
               fullWidth
-              helperText="Leave blank to use server-side ANTHROPIC_API_KEY env var"
             />
           )}
 
-          {draft.adapter === 'openai' && (
+          {keyField && (
             <TextField
-              label="OpenAI API Key"
+              label={keyField.label}
               type="password"
-              value={draft.apiKey || ''}
-              onChange={e => setDraft(d => ({ ...d, apiKey: e.target.value }))}
-              placeholder="sk-..."
+              autoComplete="off"
+              value={draft.apiKeys?.[draftAdapter] || ''}
+              onChange={e => setDraftKey(e.target.value)}
+              placeholder={keyField.placeholder}
               size="small"
               fullWidth
-              helperText="Leave blank to use server-side OPENAI_API_KEY env var"
+              helperText={`${keyField.help ? `${keyField.help} ` : ''}Leave blank to use the server-side ${keyField.env}.`}
             />
           )}
 
-          {draft.adapter === 'copilot' && (
-            <TextField
-              label="GitHub Token"
-              type="password"
-              value={draft.apiKey || ''}
-              onChange={e => setDraft(d => ({ ...d, apiKey: e.target.value }))}
-              placeholder="ghp_..."
-              size="small"
-              fullWidth
-              helperText="Leave blank to use server-side GITHUB_TOKEN env var"
-            />
+          {draftAdapter === 'copilot' && (
+            <Accordion disableGutters elevation={0} sx={{ border: 1, borderColor: 'divider' }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                <Typography variant="body2">Advanced: use a GitHub OAuth token</Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TextField
+                  label="GitHub OAuth token (gho_/ghu_)"
+                  type="password"
+                  autoComplete="off"
+                  value={draft.apiKeys?.copilot || ''}
+                  onChange={e => setDraftKey(e.target.value)}
+                  size="small"
+                  fullWidth
+                  helperText="Only needed if you cannot use Sign in with GitHub. Personal access tokens (ghp_) are not accepted by Copilot."
+                />
+              </AccordionDetails>
+            </Accordion>
           )}
 
-          {draft.adapter === 'ollama' && (
+          {draftAdapter === 'ollama' && (
             <TextField
               label="Ollama Base URL"
               value={draft.baseURL || ''}
@@ -181,7 +275,7 @@ export default function AdapterSettings({ orgs = [], config, onConfigChange }) {
           )}
 
           <Typography variant="caption" color="text.secondary">
-            API keys are sent per-request and never stored on the server.
+            API keys typed here stay in this browser and are sent with each request; they are never stored on the server.
           </Typography>
         </DialogContent>
         <DialogActions>

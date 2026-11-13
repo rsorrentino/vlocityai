@@ -44,6 +44,108 @@ router.delete('/conversations/:id', asyncHandler(async (req, res) => {
   res.json({ success: true, timestamp: new Date().toISOString() });
 }));
 
+// ── AI adapters: GitHub Copilot sign-in & model discovery ────────────────────
+
+const copilot = require('../services/aiAdapters/githubCopilot');
+const credentialStore = require('../services/aiCredentialStore');
+const { resolveCopilotGitHubToken, SUPPORTED_ADAPTERS } = require('../services/aiAdapters/openaiAdapter');
+
+// Pending device-flow logins, keyed by app user id (device codes never leave the server)
+const pendingDeviceFlows = new Map();
+
+function sendCopilotError(res, err) {
+  const status = err.name === 'CopilotAuthError' && err.status >= 400 && err.status < 500 ? 400 : 502;
+  logger.warn('Copilot request failed', { message: err.message, status: err.status });
+  res.status(status).json({ error: err.message });
+}
+
+router.get('/adapters', (req, res) => {
+  res.json({
+    adapters: ['anthropic', ...SUPPORTED_ADAPTERS],
+    timestamp: new Date().toISOString(),
+  });
+});
+
+/** Is Copilot usable for this user, and with which credential source? */
+router.get('/copilot/status', asyncHandler(async (req, res) => {
+  const { token, source, accountLogin } = await resolveCopilotGitHubToken({ userId: req.userId });
+  if (!token) {
+    return res.json({ connected: false, source: null });
+  }
+  try {
+    const session = await copilot.getCopilotSession(token);
+    res.json({ connected: true, source, accountLogin: accountLogin || null, apiBase: session.apiBase });
+  } catch (err) {
+    res.json({ connected: false, source, accountLogin: accountLogin || null, error: err.message });
+  }
+}));
+
+/** Start "Sign in with GitHub" (OAuth device flow). */
+router.post('/copilot/device/start', asyncHandler(async (req, res) => {
+  try {
+    const flow = await copilot.startDeviceFlow();
+    pendingDeviceFlows.set(req.userId, {
+      deviceCode: flow.deviceCode,
+      interval: flow.interval,
+      expiresAt: Date.now() + flow.expiresIn * 1000,
+    });
+    res.json({
+      userCode: flow.userCode,
+      verificationUri: flow.verificationUri,
+      expiresIn: flow.expiresIn,
+      interval: flow.interval,
+    });
+  } catch (err) {
+    sendCopilotError(res, err);
+  }
+}));
+
+/** Poll the device flow once; the client calls this every `interval` seconds. */
+router.post('/copilot/device/poll', asyncHandler(async (req, res) => {
+  const pending = pendingDeviceFlows.get(req.userId);
+  if (!pending || pending.expiresAt < Date.now()) {
+    pendingDeviceFlows.delete(req.userId);
+    return res.json({ status: 'expired', message: 'No sign-in in progress or the code expired. Start again.' });
+  }
+  try {
+    const result = await copilot.pollDeviceFlow(pending.deviceCode);
+    if (result.status === 'slow_down' && result.interval) pending.interval = result.interval;
+    if (result.status !== 'complete') {
+      if (['expired', 'denied', 'error'].includes(result.status)) pendingDeviceFlows.delete(req.userId);
+      return res.json({ status: result.status, interval: pending.interval, message: result.message });
+    }
+
+    pendingDeviceFlows.delete(req.userId);
+    // Verify the account actually has Copilot before storing the token
+    await copilot.getCopilotSession(result.accessToken, { force: true });
+    const user = await copilot.getGitHubUser(result.accessToken).catch(() => null);
+    await credentialStore.saveCredential(req.userId, 'copilot', result.accessToken, user?.login || null);
+    res.json({ status: 'complete', accountLogin: user?.login || null });
+  } catch (err) {
+    pendingDeviceFlows.delete(req.userId);
+    sendCopilotError(res, err);
+  }
+}));
+
+/** Disconnect Copilot for this user. */
+router.delete('/copilot', asyncHandler(async (req, res) => {
+  pendingDeviceFlows.delete(req.userId);
+  await credentialStore.deleteCredential(req.userId, 'copilot');
+  res.json({ success: true });
+}));
+
+/** Models available to the signed-in Copilot account. */
+router.get('/copilot/models', asyncHandler(async (req, res) => {
+  const { token } = await resolveCopilotGitHubToken({ userId: req.userId });
+  if (!token) return res.status(400).json({ error: 'GitHub Copilot is not connected' });
+  try {
+    const models = await copilot.listCopilotModels(token);
+    res.json({ models });
+  } catch (err) {
+    sendCopilotError(res, err);
+  }
+}));
+
 // ── Message (SSE streaming) ───────────────────────────────────────────────────
 
 router.post('/message', async (req, res) => {

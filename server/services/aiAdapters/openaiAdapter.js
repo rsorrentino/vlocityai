@@ -1,7 +1,13 @@
 const OpenAI = require('openai');
 const { toOpenAITools, executeTool } = require('../vlocityAgentTools');
+const copilot = require('./githubCopilot');
 
 const MAX_TOOL_ROUNDS = 10;
+
+function normalizeOllamaBase(url) {
+  const base = String(url || 'http://localhost:11434').replace(/\/+$/, '');
+  return /\/v1$/.test(base) ? base : `${base}/v1`;
+}
 
 const ADAPTER_DEFAULTS = {
   openai: {
@@ -10,32 +16,109 @@ const ADAPTER_DEFAULTS = {
     apiKeyEnv: 'OPENAI_API_KEY',
   },
   copilot: {
-    baseURL: 'https://api.githubcopilot.com',
-    model: 'gpt-4o',
-    apiKeyEnv: 'GITHUB_TOKEN',
+    // Real base URL comes from the Copilot token exchange (individual/business/enterprise)
+    baseURL: copilot.DEFAULT_COPILOT_API,
+    model: process.env.COPILOT_DEFAULT_MODEL || 'gpt-4.1',
+    apiKeyEnv: 'GITHUB_COPILOT_TOKEN',
+  },
+  'github-models': {
+    // GitHub Models: official OpenAI-compatible endpoint, works with a
+    // fine-grained PAT that has the "models:read" permission.
+    baseURL: process.env.GITHUB_MODELS_BASE_URL || 'https://models.github.ai/inference',
+    model: process.env.GITHUB_MODELS_DEFAULT_MODEL || 'openai/gpt-4.1',
+    apiKeyEnv: 'GITHUB_MODELS_TOKEN',
   },
   ollama: {
-    baseURL: process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1',
-    model: 'llama3.2',
+    baseURL: normalizeOllamaBase(process.env.OLLAMA_BASE_URL),
+    model: process.env.OLLAMA_DEFAULT_MODEL || 'llama3.2',
     apiKeyEnv: null,
   },
 };
 
+const SUPPORTED_ADAPTERS = Object.keys(ADAPTER_DEFAULTS);
+
+/**
+ * Resolve the GitHub OAuth token used for Copilot, in priority order:
+ *   1. token supplied with the request (advanced users)
+ *   2. token stored for this user via "Sign in with GitHub"
+ *   3. GITHUB_COPILOT_TOKEN on the server
+ *   4. the local Copilot IDE plugin token (only if COPILOT_USE_LOCAL_TOKEN=true)
+ *   5. GITHUB_TOKEN (legacy; only works if it is a Copilot OAuth token)
+ * @returns {Promise<{token:string|null, source:string|null, accountLogin?:string|null}>}
+ */
+async function resolveCopilotGitHubToken({ apiKey, userId, credentialStore } = {}) {
+  if (apiKey) return { token: apiKey, source: 'request' };
+  const store = credentialStore || require('../aiCredentialStore');
+  if (userId) {
+    try {
+      const stored = await store.getCredential(userId, 'copilot');
+      if (stored?.token) return { token: stored.token, source: 'user', accountLogin: stored.accountLogin };
+    } catch {
+      /* table not ready – fall through */
+    }
+  }
+  if (process.env.GITHUB_COPILOT_TOKEN) return { token: process.env.GITHUB_COPILOT_TOKEN, source: 'env' };
+  if (process.env.COPILOT_USE_LOCAL_TOKEN === 'true') {
+    const local = copilot.discoverLocalCopilotToken();
+    if (local) return { token: local, source: 'local' };
+  }
+  if (process.env.GITHUB_TOKEN) return { token: process.env.GITHUB_TOKEN, source: 'env-legacy' };
+  return { token: null, source: null };
+}
+
+/**
+ * Build the OpenAI client options for an adapter.
+ * Server-side API keys are never sent to a caller-supplied base URL.
+ */
+async function resolveClientOptions({ adapterType, apiKey, baseURL, userId, credentialStore, fetchImpl }) {
+  const defaults = ADAPTER_DEFAULTS[adapterType];
+  if (!defaults) throw new Error(`Unknown adapter: ${adapterType}`);
+
+  if (adapterType === 'copilot') {
+    const { token } = await resolveCopilotGitHubToken({ apiKey, userId, credentialStore });
+    const session = await copilot.getCopilotSession(token, { fetchImpl });
+    return {
+      apiKey: session.token,
+      baseURL: session.apiBase,
+      defaultHeaders: copilot.copilotHeaders(),
+    };
+  }
+
+  if (adapterType === 'ollama') {
+    return { apiKey: 'ollama', baseURL: baseURL ? normalizeOllamaBase(baseURL) : defaults.baseURL };
+  }
+
+  // openai / github-models: a custom base URL is only honoured together with
+  // a caller-supplied key, so the server's own key can't be exfiltrated.
+  const envKey = defaults.apiKeyEnv ? process.env[defaults.apiKeyEnv]
+    || (adapterType === 'github-models' ? process.env.GITHUB_TOKEN : undefined) : undefined;
+  const key = apiKey || envKey;
+  if (!key) {
+    throw new Error(`No API key configured for ${adapterType}. Add one in the chat settings or set ${defaults.apiKeyEnv} on the server.`);
+  }
+  return {
+    apiKey: key,
+    baseURL: apiKey && baseURL ? baseURL : defaults.baseURL,
+  };
+}
+
 /**
  * Run the OpenAI-compatible agentic loop and stream results via SSE.
- * Works for OpenAI, GitHub Copilot, and Ollama (all share the same API shape).
+ * Works for OpenAI, GitHub Copilot, GitHub Models and Ollama.
  *
  * @param {Object} params
- * @param {string} params.adapterType    - 'openai' | 'copilot' | 'ollama'
+ * @param {string} params.adapterType    - 'openai' | 'copilot' | 'github-models' | 'ollama'
  * @param {Array}  params.messages       - Conversation history [{role, content}]
  * @param {string} params.systemPrompt
  * @param {string} params.apiKey
  * @param {string} params.model
- * @param {string} params.baseURL        - Optional override
+ * @param {string} params.baseURL        - Optional override (ignored for copilot)
+ * @param {string} params.userId         - Used to look up stored credentials
  * @param {string} params.orgUsername
  * @param {Function} params.onToken
  * @param {Function} params.onToolStart
  * @param {Function} params.onToolEnd
+ * @param {Function} [params.clientFactory] - test hook: (options) => OpenAI-like client
  * @returns {Promise<{content: string, tokensUsed: number, toolCalls: Array}>}
  */
 async function runOpenAIStream({
@@ -45,20 +128,19 @@ async function runOpenAIStream({
   apiKey,
   model,
   baseURL,
+  userId,
   orgUsername,
   onToken,
   onToolStart,
   onToolEnd,
+  clientFactory,
+  credentialStore,
 }) {
   const defaults = ADAPTER_DEFAULTS[adapterType] || ADAPTER_DEFAULTS.openai;
-  const resolvedKey = apiKey || (defaults.apiKeyEnv ? process.env[defaults.apiKeyEnv] : 'ollama');
-  const resolvedBase = baseURL || defaults.baseURL;
   const resolvedModel = model || defaults.model;
 
-  const client = new OpenAI({
-    apiKey: resolvedKey || 'ollama',
-    baseURL: resolvedBase,
-  });
+  const clientOptions = await resolveClientOptions({ adapterType, apiKey, baseURL, userId, credentialStore });
+  const client = clientFactory ? clientFactory(clientOptions) : new OpenAI(clientOptions);
 
   const openaiTools = toOpenAITools(require('../vlocityAgentTools').TOOL_DEFINITIONS);
 
@@ -85,24 +167,34 @@ async function runOpenAIStream({
     const pendingToolCalls = {};
 
     for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta;
-      if (!delta) continue;
+      // Copilot can proxy non-OpenAI models that spread a turn over several
+      // choices, so look at every choice instead of only choices[0].
+      for (const choice of chunk.choices || []) {
+        const delta = choice?.delta;
+        if (!delta) continue;
 
-      if (delta.content) {
-        roundText += delta.content;
-        onToken(delta.content);
-      }
+        if (delta.content) {
+          roundText += delta.content;
+          onToken(delta.content);
+        }
 
-      // Accumulate tool call deltas
-      if (delta.tool_calls) {
-        for (const tc of delta.tool_calls) {
-          const idx = tc.index;
-          if (!pendingToolCalls[idx]) {
-            pendingToolCalls[idx] = { id: '', name: '', arguments: '' };
+        // Accumulate tool call deltas
+        if (delta.tool_calls) {
+          for (const tc of delta.tool_calls) {
+            let idx = tc.index;
+            if (idx === undefined || idx === null) {
+              const existing = tc.id && Object.entries(pendingToolCalls).find(([, p]) => p.id === tc.id);
+              idx = existing ? existing[0] : Object.keys(pendingToolCalls).length;
+            }
+            if (!pendingToolCalls[idx]) {
+              pendingToolCalls[idx] = { id: '', name: '', arguments: '' };
+            }
+            const pending = pendingToolCalls[idx];
+            // ids/names arrive once (OpenAI) or repeated on every chunk (some proxies)
+            if (tc.id && !pending.id) pending.id = tc.id;
+            if (tc.function?.name && !pending.name) pending.name = tc.function.name;
+            if (tc.function?.arguments) pending.arguments += tc.function.arguments;
           }
-          if (tc.id) pendingToolCalls[idx].id += tc.id;
-          if (tc.function?.name) pendingToolCalls[idx].name += tc.function.name;
-          if (tc.function?.arguments) pendingToolCalls[idx].arguments += tc.function.arguments;
         }
       }
 
@@ -119,8 +211,8 @@ async function runOpenAIStream({
     }
 
     // Add assistant message with tool calls
-    const assistantToolCalls = Object.values(pendingToolCalls).map(tc => ({
-      id: tc.id,
+    const assistantToolCalls = Object.values(pendingToolCalls).map((tc, i) => ({
+      id: tc.id || `call_${round}_${i}`,
       type: 'function',
       function: { name: tc.name, arguments: tc.arguments },
     }));
@@ -137,7 +229,7 @@ async function runOpenAIStream({
     const toolMessages = [];
     for (const tc of assistantToolCalls) {
       let parsedArgs = {};
-      try { parsedArgs = JSON.parse(tc.function.arguments); } catch {}
+      try { parsedArgs = tc.function.arguments ? JSON.parse(tc.function.arguments) : {}; } catch { parsedArgs = {}; }
 
       onToolStart(tc.function.name, parsedArgs);
       const result = await executeTool(tc.function.name, parsedArgs, orgUsername);
@@ -153,4 +245,11 @@ async function runOpenAIStream({
   return { content: fullResponse, tokensUsed, toolCalls };
 }
 
-module.exports = { runOpenAIStream };
+module.exports = {
+  runOpenAIStream,
+  resolveClientOptions,
+  resolveCopilotGitHubToken,
+  normalizeOllamaBase,
+  ADAPTER_DEFAULTS,
+  SUPPORTED_ADAPTERS,
+};
