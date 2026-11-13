@@ -1,0 +1,49 @@
+# Salesforce org configuration (optional)
+#
+# Copy this file to environments.properties and fill in your own orgs:
+#   macOS/Linux:  cp environments.properties.example environments.properties
+#   Windows:      copy environments.properties.example environments.properties
+#
+# environments.properties is git-ignored: it holds your org usernames and URLs.
+# On first start the orgs listed here are imported into Organization Management;
+# after that, manage orgs in the UI (it is the source of truth). The Settings
+# page rewrites this file when you save properties there.
+#
+# Keys are <NAME>.<env> where env is dev, uat or prod.
+#   *_USERNAME        Salesforce username (or alias) authorised in the SF CLI
+#   *_ALIAS           SF CLI alias for the org
+#   *_URL             Instance URL, e.g. https://example--dev.sandbox.my.salesforce.com
+#   *_USERNAME_LABEL  Display name shown in the UI
+
+# ── dev ──────────────────────────────────────────────────────────────────────
+SOURCE_SFDX_USERNAME_LABEL.dev=Source-Dev
+SOURCE_SFDX_USERNAME.dev=your.name@example.com.sourcedev
+SOURCE_SFDX_ALIAS.dev=source-dev
+SOURCE_SFDX_URL.dev=https://example--sourcedev.sandbox.my.salesforce.com
+
+TARGET_SFDX_USERNAME_LABEL.dev=Target-Dev
+TARGET_SFDX_USERNAME.dev=your.name@example.com.targetdev
+TARGET_SFDX_ALIAS.dev=target-dev
+TARGET_SFDX_URL.dev=https://example--targetdev.sandbox.my.salesforce.com
+
+# ── uat ──────────────────────────────────────────────────────────────────────
+SOURCE_SFDX_USERNAME_LABEL.uat=Source-UAT
+SOURCE_SFDX_USERNAME.uat=your.name@example.com.sourcedev
+SOURCE_SFDX_ALIAS.uat=source-dev
+SOURCE_SFDX_URL.uat=https://example--sourcedev.sandbox.my.salesforce.com
+
+TARGET_SFDX_USERNAME_LABEL.uat=Target-UAT
+TARGET_SFDX_USERNAME.uat=your.name@example.com.uat
+TARGET_SFDX_ALIAS.uat=target-uat
+TARGET_SFDX_URL.uat=https://example--uat.sandbox.my.salesforce.com
+
+# ── prod ─────────────────────────────────────────────────────────────────────
+SOURCE_SFDX_USERNAME_LABEL.prod=
+SOURCE_SFDX_USERNAME.prod=
+SOURCE_SFDX_ALIAS.prod=
+SOURCE_SFDX_URL.prod=
+
+TARGET_SFDX_USERNAME_LABEL.prod=
+TARGET_SFDX_USERNAME.prod=
+TARGET_SFDX_ALIAS.prod=
+TARGET_SFDX_URL.prod=

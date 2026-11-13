@@ -112,7 +112,7 @@ const schemas = {
       Joi.array().items(Joi.string()).min(0), // Allow empty array
       Joi.array().allow(null) // Allow null/undefined
     ).optional().default([]), // Default to empty array if not provided
-    // Salesforce usernames can have additional segments (e.g., .mastcatdev, .symporting)
+    // Salesforce usernames can have additional segments (e.g., .dev, .uat)
     // Use pattern instead of strict email validation
     sourceUsername: Joi.string().pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+(\.[^\s@]+)*$/).required(),
     targetUsername: Joi.string().pattern(/^[^\s@]+@[^\s@]+\.[^\s@]+(\.[^\s@]+)*$/).required(),

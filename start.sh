@@ -142,24 +142,12 @@ mkdir -p temp
 mkdir -p jobs
 mkdir -p uploads
 
-# Check if environments.properties file exists
+# Org configuration is optional: orgs are managed in the UI (Organization Management).
 if [ ! -f environments.properties ]; then
-    echo "⚠️  environments.properties file not found."
-    echo "📝 Please ensure environments.properties exists with your Salesforce credentials:"
-    echo "   - SFDX_USERNAME: Your default Salesforce username"
-    echo "   - SOURCE_SFDX_USERNAME: Source org for exports"
-    echo "   - TARGET_SFDX_USERNAME: Target org for deployments"
-    echo ""
-    echo "   Example:"
-    echo "   SFDX_USERNAME=your.username@company.com"
-    echo "   SOURCE_SFDX_USERNAME=your.username@company.com"
-    echo "   TARGET_SFDX_USERNAME=your.target@company.com"
-    echo ""
-    echo "   After configuring environments.properties, run this script again to start the application."
-    exit 0
+    echo "ℹ️  No environments.properties – add orgs in Organization Management, or copy"
+    echo "   environments.properties.example to environments.properties and edit it."
 fi
 
-echo "✅ Environment configuration found in environments.properties"
 
 # Start PostgreSQL and Redis services
 echo "🚀 Starting required services..."

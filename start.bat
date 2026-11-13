@@ -69,25 +69,11 @@ if not exist temp mkdir temp
 if not exist jobs mkdir jobs
 if not exist uploads mkdir uploads
 
-REM Check if environments.properties file exists
+REM Org configuration is optional: orgs are managed in the UI (Organization Management).
 if not exist environments.properties (
-    echo ⚠️  environments.properties file not found.
-    echo 📝 Please ensure environments.properties exists with your Salesforce credentials:
-    echo    - SFDX_USERNAME: Your default Salesforce username
-    echo    - SOURCE_SFDX_USERNAME: Source org for exports
-    echo    - TARGET_SFDX_USERNAME: Target org for deployments
-    echo.
-    echo    Example:
-    echo    SFDX_USERNAME=your.username@company.com
-    echo    SOURCE_SFDX_USERNAME=your.username@company.com
-    echo    TARGET_SFDX_USERNAME=your.target@company.com
-    echo.
-    echo    After configuring environments.properties, run this script again to start the application.
-    pause
-    exit /b 0
+    echo ℹ️  No environments.properties - add orgs in Organization Management, or copy
+    echo    environments.properties.example to environments.properties and edit it.
 )
-
-echo ✅ Environment configuration found in environments.properties
 
 REM Start the application
 echo 🚀 Starting Vlocity DataPack Manager...

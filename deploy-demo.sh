@@ -1,8 +1,10 @@
-# vlocity -sfdx.username "rocco.sorrentino@amplifonapac.com.prtuat01" -job "./jobs/DeployPRTUATforBS.yaml" packDeploy
+#!/usr/bin/env bash
+# Example manual Vlocity deploy. Set the org username (or SF CLI alias) first:
+#   TARGET_SFDX_USERNAME=my-target-alias ./deploy-demo.sh ./jobs/MyDeploy.yaml
+set -euo pipefail
 
-# vlocity -sfdx.username "rocco.sorrentino@amplifonapac.com.mastcatdev" -job "./jobs/ExportForBS.yaml" packExport
-# vlocity -sfdx.username "rocco.sorrentino@amplifonapac.com.prtuat01" -job "./jobs/BackupUAT.yaml" packExport
+TARGET="${TARGET_SFDX_USERNAME:?Set TARGET_SFDX_USERNAME to the target org username or alias}"
+JOB_FILE="${1:?Usage: deploy-demo.sh <job-file.yaml>}"
 
-vlocity -sfdx.username "rocco.sorrentino@amplifonapac.com.prtuat01" -job "./jobs/DeployPRTUATforBS.yaml" packDeploy
-
-vlocity -sfdx.username "rocco.sorrentino@amplifonapac.com.prtuat01" -job "./jobs/DeployPRTUATforBS.yaml" packRetry
+vlocity -sfdx.username "$TARGET" -job "$JOB_FILE" packDeploy
+vlocity -sfdx.username "$TARGET" -job "$JOB_FILE" packRetry
