@@ -3,6 +3,22 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 
+/**
+ * Where the SQLite database lives:
+ *   DATABASE_URL=sqlite::memory:        -> in-memory (tests)
+ *   DATABASE_URL=sqlite:/path/to/app.db -> that file
+ *   otherwise                           -> <DATA_DIR>/vlocity_manager.db
+ * Paths are resolved with path.resolve so they work on Windows, Linux and macOS.
+ */
+function resolveSqliteStorage() {
+  const url = process.env.DATABASE_URL || '';
+  if (/^sqlite:(\/\/)?:memory:?$/i.test(url)) return ':memory:';
+  const match = url.match(/^sqlite:(?:\/\/)?(.+)$/i);
+  if (match && match[1] && match[1] !== ':memory:') return path.resolve(match[1]);
+  const { getDataDir } = require('../utils/secrets');
+  return path.join(getDataDir(), 'vlocity_manager.db');
+}
+
 class DatabaseService {
   constructor() {
     this.sequelize = null;
@@ -76,11 +92,10 @@ class DatabaseService {
    *   false when SQLite is the primary/intended database (no postgres URL configured).
    */
   async _initSQLite(isFallback = false) {
-    const dataDir = path.join(__dirname, '../../data');
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
+    const dbPath = resolveSqliteStorage();
+    if (dbPath !== ':memory:') {
+      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     }
-    const dbPath = path.join(dataDir, 'vlocity_manager.db');
     this.sequelize = new Sequelize({
       dialect: 'sqlite',
       storage: dbPath,

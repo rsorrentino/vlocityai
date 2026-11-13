@@ -121,8 +121,8 @@ class ExportRecoveryService {
         jobMonitor.addJobLog(jobId, `▶️  Running main export...`, 'info');
         await vlocityService.exportDataPacks(username, mainJobPath, jobId);
         
-        // Check for errors — hasErrors() returns an object, not a boolean
-        const errCheck = await errorLogParser.hasErrors();
+        // Combined status from VlocityBuildErrors.log and VlocityBuildLog.yaml
+        const errCheck = await errorLogParser.getErrorStatus();
         const buildLogStats = await errorLogParser.parseVlocityBuildLog();
         const buildLogErrors = buildLogStats?.errorCount || 0;
         const buildLogRemaining = buildLogStats?.remainingCount || 0;

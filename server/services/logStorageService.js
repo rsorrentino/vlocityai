@@ -20,7 +20,12 @@ class LogStorageService {
    * Get log file path for a job
    */
   getLogFilePath(jobId) {
-    return path.join(this.logsDir, `${jobId}.log`);
+    // Job ids come from URLs – never allow them to escape the logs directory
+    const safeId = String(jobId);
+    if (!safeId || safeId.includes('/') || safeId.includes('\\') || safeId.includes('..') || safeId.includes('\0')) {
+      throw new Error(`Invalid job id: ${safeId}`);
+    }
+    return path.join(this.logsDir, `${safeId}.log`);
   }
 
   /**

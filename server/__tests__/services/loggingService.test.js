@@ -1,4 +1,4 @@
-const loggingService = require('../services/loggingService');
+const loggingService = require('../../services/loggingService');
 
 describe('LoggingService', () => {
   beforeEach(() => {

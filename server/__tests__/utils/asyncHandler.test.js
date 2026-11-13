@@ -1,4 +1,4 @@
-const asyncHandler = require('../../middleware/asyncHandler');
+const asyncHandler = require('../../middleware/errorHandler').asyncHandler;
 
 describe('Async Handler Utility', () => {
   let mockReq, mockRes, mockNext;

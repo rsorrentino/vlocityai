@@ -1,4 +1,4 @@
-const propertiesService = require('../services/propertiesService');
+const propertiesService = require('../../services/propertiesService');
 const fs = require('fs-extra');
 
 jest.mock('fs-extra');

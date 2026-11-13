@@ -1,6 +1,16 @@
 const { spawnSafe: spawn } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
+// SOQL identifiers / ids are interpolated into queries – only allow safe tokens
+const SF_ID = /^[A-Za-z0-9]{15}(?:[A-Za-z0-9]{3})?$/;
+const SF_PREFIX = /^[A-Za-z0-9]{3}$/;
+const SF_API_NAME = /^[A-Za-z][A-Za-z0-9_]*(?:__[A-Za-z0-9]+)?$/;
+const SF_FIELD = /^[A-Za-z][A-Za-z0-9_]*(?:__[a-z]+)?(?:\.[A-Za-z][A-Za-z0-9_]*(?:__[a-z]+)?)*$/;
+
+function assertApiName(name) {
+  if (!SF_API_NAME.test(String(name))) throw new Error(`Invalid Salesforce object name: ${name}`);
+}
+
 /**
  * Service for querying Salesforce metadata and resolving object information
  */
@@ -58,7 +68,12 @@ class SalesforceMetadataService {
   async queryPrefixChunk(prefixes, username) {
     return new Promise((resolve, reject) => {
       // Build SOQL query
-      const prefixList = prefixes.map(p => `'${p}'`).join(',');
+      const safePrefixes = prefixes.filter(p => SF_PREFIX.test(p));
+      if (safePrefixes.length === 0) {
+        resolve(new Map());
+        return;
+      }
+      const prefixList = safePrefixes.map(p => `'${p}'`).join(',');
       const soql = `SELECT QualifiedApiName, KeyPrefix FROM EntityDefinition WHERE KeyPrefix IN (${prefixList})`;
 
       logger.info(`Querying ${prefixes.length} prefixes via SF CLI`);
@@ -157,67 +172,59 @@ class SalesforceMetadataService {
    * @returns {Promise<Array>} Array of records
    */
   async queryRecords(objectName, ids, username, fields = ['Id', 'Name']) {
-    return new Promise((resolve, reject) => {
-      if (!ids || ids.length === 0) {
-        resolve([]);
-        return;
-      }
+    if (!ids || ids.length === 0) return [];
+    assertApiName(objectName);
+    const safeFields = fields.filter(f => SF_FIELD.test(f));
+    if (safeFields.length === 0) throw new Error('No valid fields to query');
+    const safeIds = ids.filter(id => SF_ID.test(id));
 
-      // Chunk IDs to avoid SOQL IN clause limits (1000 max)
-      const chunkSize = 1000;
-      const allRecords = [];
+    // Chunk IDs to avoid SOQL IN clause limits
+    const chunkSize = 1000;
+    const allRecords = [];
 
-      const processChunk = async (chunk) => {
-        const idList = chunk.map(id => `'${id}'`).join(',');
-        const fieldList = fields.join(', ');
-        const soql = `SELECT ${fieldList} FROM ${objectName} WHERE Id IN (${idList})`;
+    const runChunk = (chunk) => new Promise((resolve) => {
+      const idList = chunk.map(id => `'${id}'`).join(',');
+      const soql = `SELECT ${safeFields.join(', ')} FROM ${objectName} WHERE Id IN (${idList})`;
+      const args = ['data', 'query', '--query', soql, '--target-org', username, '--result-format', 'json'];
 
-        const args = ['data', 'query', '--query', soql, '--target-org', username, '--result-format', 'json'];
-        
-        const child = spawn('sf', args, {
-          cwd: process.cwd(),
-          stdio: ['pipe', 'pipe', 'pipe'],
-          windowsHide: true
-        });
+      const child = spawn('sf', args, {
+        cwd: process.cwd(),
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
 
-        let stdout = '';
-        let stderr = '';
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (data) => { stdout += data.toString(); });
+      child.stderr.on('data', (data) => { stderr += data.toString(); });
 
-        child.stdout.on('data', (data) => {
-          stdout += data.toString();
-        });
-
-        child.stderr.on('data', (data) => {
-          stderr += data.toString();
-        });
-
-        child.on('close', (code) => {
-          if (code !== 0) {
-            logger.error(`SF CLI query failed for ${objectName}`, { stderr });
-            resolve([]);
-            return;
-          }
-
-          try {
-            const result = JSON.parse(stdout);
-            if (result.result && result.result.records) {
-              allRecords.push(...result.result.records);
-            }
-          } catch (error) {
-            logger.logError(error, { operation: 'queryRecords', objectName });
-          }
-        });
-      };
-
-      // Process all chunks
-      (async () => {
-        for (let i = 0; i < ids.length; i += chunkSize) {
-          const chunk = ids.slice(i, i + chunkSize);
-          await processChunk(chunk);
+      child.on('close', (code) => {
+        if (code !== 0) {
+          logger.error(`SF CLI query failed for ${objectName}`, { stderr });
+          resolve();
+          return;
         }
-        resolve(allRecords);
-      })();
+        try {
+          // eslint-disable-next-line no-control-regex
+          const result = JSON.parse(stdout.replace(/\x1b\[[0-9;]*m/g, ''));
+          if (result.result && result.result.records) {
+            allRecords.push(...result.result.records);
+          }
+        } catch (error) {
+          logger.logError(error, { operation: 'queryRecords', objectName });
+        }
+        resolve();
+      });
+
+      child.on('error', (error) => {
+        logger.logError(error, { operation: 'queryRecords', objectName });
+        resolve();
+      });
     });
+
+    for (let i = 0; i < safeIds.length; i += chunkSize) {
+      await runChunk(safeIds.slice(i, i + chunkSize));
+    }
+    return allRecords;
   }
 
   /**
@@ -227,6 +234,7 @@ class SalesforceMetadataService {
    * @returns {Promise<Object>} Object metadata
    */
   async getObjectInfo(objectName, username) {
+    assertApiName(objectName);
     return new Promise((resolve, reject) => {
       const soql = `SELECT QualifiedApiName, Label, KeyPrefix, IsCustomizable FROM EntityDefinition WHERE QualifiedApiName = '${objectName}'`;
 

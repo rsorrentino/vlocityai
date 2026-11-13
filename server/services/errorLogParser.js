@@ -116,7 +116,8 @@ class ErrorLogParser {
    */
   extractFailedTypes(content) {
     // Pattern: Product2/My-Product-Name or VlocityUITemplate/MyTemplate
-    const pattern = /^([A-Za-z0-9_-]+)\/([A-Za-z0-9_\s-]+)/gm;
+    // [ \t] instead of \s so a match never runs into the next line
+    const pattern = /^[ \t]*([A-Za-z0-9_-]+)\/([A-Za-z0-9_ \t-]+)/gm;
     const types = new Set();
 
     let match;
@@ -429,7 +430,7 @@ class ErrorLogParser {
    * **NEW FEATURE**: Combined error detection from multiple sources
    * @returns {Object} Comprehensive error status
    */
-  async hasErrors() {
+  async getErrorStatus() {
     const errorLogExists = await fs.pathExists(this.errorLogPath);
     const buildLogResult = await this.parseVlocityBuildLog();
     

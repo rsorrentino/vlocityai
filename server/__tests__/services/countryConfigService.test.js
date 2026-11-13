@@ -1,4 +1,4 @@
-const countryConfigService = require('../services/countryConfigService');
+const countryConfigService = require('../../services/countryConfigService');
 
 describe('CountryConfigService', () => {
   beforeEach(() => {
@@ -9,11 +9,11 @@ describe('CountryConfigService', () => {
 
   describe('Country Configuration', () => {
     it('should get country configuration', () => {
-      const config = countryConfigService.getCountryConfig('US');
+      const config = countryConfigService.getCountryConfig('BE');
       
       expect(config).toBeDefined();
-      expect(config.code).toBe('US');
-      expect(config.name).toBe('United States');
+      expect(config.code).toBe('BE');
+      expect(config.name).toBe('Belgium');
     });
 
     it('should return default country config when code not found', () => {
