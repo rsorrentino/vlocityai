@@ -1,233 +1,129 @@
-const salesforceMetadataService = require('../../services/salesforceMetadataService');
-const { spawn } = require('child_process');
+const { EventEmitter } = require('events');
 
-// Mock child_process
-jest.mock('child_process');
+jest.mock('../../utils/processRunner', () => ({ spawnSafe: jest.fn() }));
+
+const { spawnSafe } = require('../../utils/processRunner');
+const salesforceMetadataService = require('../../services/salesforceMetadataService');
+
+function fakeChild({ stdout = '', stderr = '', code = 0, error = null } = {}) {
+  const child = new EventEmitter();
+  child.stdout = new EventEmitter();
+  child.stderr = new EventEmitter();
+  setImmediate(() => {
+    if (error) {
+      child.emit('error', error);
+      return;
+    }
+    if (stdout) child.stdout.emit('data', Buffer.from(stdout));
+    if (stderr) child.stderr.emit('data', Buffer.from(stderr));
+    child.emit('close', code);
+  });
+  return child;
+}
+
+const records = (rows) => JSON.stringify({ status: 0, result: { records: rows } });
 
 describe('SalesforceMetadataService', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-  });
-
-  describe('extractPrefix', () => {
-    it('should extract 3-character prefix from Salesforce ID', () => {
-      const prefix = salesforceMetadataService.extractPrefix('01t8s00000A8ZPRAA3');
-      expect(prefix).toBe('01t');
-    });
-
-    it('should return null for invalid ID', () => {
-      const prefix = salesforceMetadataService.extractPrefix('ab');
-      expect(prefix).toBeNull();
-    });
-
-    it('should handle null input', () => {
-      const prefix = salesforceMetadataService.extractPrefix(null);
-      expect(prefix).toBeNull();
-    });
-  });
-
-  describe('groupIdsByPrefix', () => {
-    it('should group IDs by prefix', () => {
-      const ids = [
-        '01t8s00000A8ZPRAA3',
-        '01t8s00000A8ZPSAA3',
-        '00D8s000000pLGyEAM',
-        '00D8s000000pLGzEAM',
-      ];
-
-      const grouped = salesforceMetadataService.groupIdsByPrefix(ids);
-
-      expect(grouped['01t']).toHaveLength(2);
-      expect(grouped['00D']).toHaveLength(2);
-    });
-
-    it('should filter out invalid IDs', () => {
-      const ids = ['01t8s00000A8ZPRAA3', 'invalid', 'ab'];
-      const grouped = salesforceMetadataService.groupIdsByPrefix(ids);
-
-      expect(Object.keys(grouped)).toHaveLength(1);
-      expect(grouped['01t']).toHaveLength(1);
-    });
-
-    it('should handle empty array', () => {
-      const grouped = salesforceMetadataService.groupIdsByPrefix([]);
-      expect(grouped).toEqual({});
-    });
-  });
-
-  describe('buildSoqlQuery', () => {
-    it('should build SOQL query for prefixes', () => {
-      const prefixes = ['01t', '00D'];
-      const query = salesforceMetadataService.buildSoqlQuery(prefixes);
-
-      expect(query).toContain('SELECT KeyPrefix, QualifiedApiName FROM EntityDefinition');
-      expect(query).toContain("KeyPrefix IN ('01t','00D')");
-    });
-
-    it('should handle single prefix', () => {
-      const prefixes = ['01t'];
-      const query = salesforceMetadataService.buildSoqlQuery(prefixes);
-
-      expect(query).toContain("KeyPrefix IN ('01t')");
-    });
-
-    it('should handle empty array', () => {
-      const query = salesforceMetadataService.buildSoqlQuery([]);
-      expect(query).toContain("KeyPrefix IN ()");
-    });
-  });
-
-  describe('parseSoqlResult', () => {
-    it('should parse valid SOQL result', () => {
-      const soqlOutput = JSON.stringify({
-        result: {
-          records: [
-            { KeyPrefix: '01t', QualifiedApiName: 'Product2' },
-            { KeyPrefix: '00D', QualifiedApiName: 'Organization' },
-          ],
-        },
-      });
-
-      const mapping = salesforceMetadataService.parseSoqlResult(soqlOutput);
-
-      expect(mapping['01t']).toBe('Product2');
-      expect(mapping['00D']).toBe('Organization');
-    });
-
-    it('should handle empty result', () => {
-      const soqlOutput = JSON.stringify({
-        result: { records: [] },
-      });
-
-      const mapping = salesforceMetadataService.parseSoqlResult(soqlOutput);
-      expect(mapping).toEqual({});
-    });
-
-    it('should handle invalid JSON', () => {
-      const mapping = salesforceMetadataService.parseSoqlResult('invalid json');
-      expect(mapping).toEqual({});
-    });
-
-    it('should handle missing result field', () => {
-      const soqlOutput = JSON.stringify({});
-      const mapping = salesforceMetadataService.parseSoqlResult(soqlOutput);
-      expect(mapping).toEqual({});
-    });
+  beforeEach(() => {
+    spawnSafe.mockReset();
   });
 
   describe('resolveIdPrefixes', () => {
-    it('should resolve prefixes to SObject names', async () => {
-      const mockSpawn = {
-        stdout: {
-          on: jest.fn((event, handler) => {
-            if (event === 'data') {
-              handler(Buffer.from(JSON.stringify({
-                result: {
-                  records: [
-                    { KeyPrefix: '01t', QualifiedApiName: 'Product2' },
-                  ],
-                },
-              })));
-            }
-          }),
-        },
-        stderr: { on: jest.fn() },
-        on: jest.fn((event, handler) => {
-          if (event === 'close') {
-            handler(0);
-          }
-        }),
-      };
+    it('resolves prefixes to SObject names', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({
+        stdout: records([
+          { KeyPrefix: '01t', QualifiedApiName: 'Product2' },
+          { KeyPrefix: 'a0X', QualifiedApiName: 'vlocity_cmt__Catalog__c' },
+        ]),
+      }));
 
-      spawn.mockReturnValue(mockSpawn);
+      const map = await salesforceMetadataService.resolveIdPrefixes(
+        ['01t8s00000A8ZPRAA3', '01t8s00000A8ZPSAA3', 'a0X8s00000ABCDEFGH'],
+        'user@example.com'
+      );
 
-      const ids = ['01t8s00000A8ZPRAA3'];
-      const result = await salesforceMetadataService.resolveIdPrefixes(ids, 'test@example.com');
-
-      expect(result.resolved['01t']).toBe('Product2');
-      expect(result.objectTypes).toContain('Product2');
+      expect(map.get('01t')).toBe('Product2');
+      expect(map.get('a0X')).toBe('vlocity_cmt__Catalog__c');
+      expect(spawnSafe).toHaveBeenCalledTimes(1);
     });
 
-    it('should handle empty ID list', async () => {
-      const result = await salesforceMetadataService.resolveIdPrefixes([], 'test@example.com');
+    it('passes the username as a separate argv entry (no shell interpolation)', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ stdout: records([]) }));
+      const evil = 'user@example.com; rm -rf /';
 
-      expect(result.resolved).toEqual({});
-      expect(result.objectTypes).toEqual([]);
-      expect(result.unresolved).toEqual([]);
+      await salesforceMetadataService.resolveIdPrefixes(['01t8s00000A8ZPRAA3'], evil);
+
+      const [cmd, args, opts] = spawnSafe.mock.calls[0];
+      expect(cmd).toBe('sf');
+      expect(args).toEqual(expect.arrayContaining(['--target-org', evil]));
+      expect(opts.shell).toBeUndefined();
     });
 
-    it('should handle command failure', async () => {
-      const mockSpawn = {
-        stdout: { on: jest.fn() },
-        stderr: {
-          on: jest.fn((event, handler) => {
-            if (event === 'data') {
-              handler(Buffer.from('Error message'));
-            }
-          }),
-        },
-        on: jest.fn((event, handler) => {
-          if (event === 'close') {
-            handler(1);
-          }
-        }),
-      };
+    it('returns an empty map for no ids', async () => {
+      const map = await salesforceMetadataService.resolveIdPrefixes([], 'u');
+      expect(map.size).toBe(0);
+      expect(spawnSafe).not.toHaveBeenCalled();
+    });
 
-      spawn.mockReturnValue(mockSpawn);
+    it('rejects when the CLI fails', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ code: 1, stderr: 'No authorization' }));
+      await expect(
+        salesforceMetadataService.resolveIdPrefixes(['01t8s00000A8ZPRAA3'], 'u')
+      ).rejects.toThrow(/No authorization/);
+    });
 
-      const ids = ['01t8s00000A8ZPRAA3'];
-      const result = await salesforceMetadataService.resolveIdPrefixes(ids, 'test@example.com');
-
-      expect(result.resolved).toEqual({});
-      expect(result.unresolved).toContain('01t');
+    it('strips ANSI colours before parsing JSON', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({
+        stdout: `\x1b[32m${records([{ KeyPrefix: '01t', QualifiedApiName: 'Product2' }])}\x1b[0m`,
+      }));
+      const map = await salesforceMetadataService.resolveIdPrefixes(['01t8s00000A8ZPRAA3'], 'u');
+      expect(map.get('01t')).toBe('Product2');
     });
   });
 
-  describe('batchPrefixes', () => {
-    it('should batch prefixes into groups', () => {
-      const prefixes = Array.from({ length: 250 }, (_, i) => `0${i.toString().padStart(2, '0')}`);
-      const batches = salesforceMetadataService.batchPrefixes(prefixes, 100);
-
-      expect(batches).toHaveLength(3);
-      expect(batches[0]).toHaveLength(100);
-      expect(batches[1]).toHaveLength(100);
-      expect(batches[2]).toHaveLength(50);
-    });
-
-    it('should handle small arrays', () => {
-      const prefixes = ['01t', '00D'];
-      const batches = salesforceMetadataService.batchPrefixes(prefixes, 100);
-
-      expect(batches).toHaveLength(1);
-      expect(batches[0]).toEqual(prefixes);
-    });
-
-    it('should handle empty array', () => {
-      const batches = salesforceMetadataService.batchPrefixes([], 100);
-      expect(batches).toEqual([]);
+  describe('mapIdsToObjects', () => {
+    it('groups ids by object', () => {
+      const prefixMap = new Map([['01t', 'Product2']]);
+      const result = salesforceMetadataService.mapIdsToObjects(
+        ['01t8s00000A8ZPRAA3', '01t8s00000A8ZPSAA3', 'zzz000000000000', 'ab'],
+        prefixMap
+      );
+      expect(result.get('Product2')).toHaveLength(2);
+      expect(result.size).toBe(1);
     });
   });
 
-  describe('getObjectTypeFromPrefix', () => {
-    it('should return cached object type', () => {
-      salesforceMetadataService.prefixCache = { '01t': 'Product2' };
-      const objectType = salesforceMetadataService.getObjectTypeFromPrefix('01t');
-      expect(objectType).toBe('Product2');
+  describe('queryRecords', () => {
+    it('waits for every chunk and returns the records', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ stdout: records([{ Id: '01t8s00000A8ZPRAA3', Name: 'Hearing aid' }]) }));
+      const rows = await salesforceMetadataService.queryRecords('Product2', ['01t8s00000A8ZPRAA3'], 'u');
+      expect(rows).toEqual([{ Id: '01t8s00000A8ZPRAA3', Name: 'Hearing aid' }]);
     });
 
-    it('should return null for uncached prefix', () => {
-      salesforceMetadataService.prefixCache = {};
-      const objectType = salesforceMetadataService.getObjectTypeFromPrefix('01t');
-      expect(objectType).toBeNull();
+    it('drops ids that are not Salesforce ids', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ stdout: records([]) }));
+      await salesforceMetadataService.queryRecords('Product2', ["01t8s00000A8ZPRAA3", "x' OR Name != '"], 'u');
+      const soql = spawnSafe.mock.calls[0][1][3];
+      expect(soql).toContain("'01t8s00000A8ZPRAA3'");
+      expect(soql).not.toContain('OR Name');
+    });
+
+    it('rejects invalid object names', async () => {
+      await expect(
+        salesforceMetadataService.queryRecords('Product2 WHERE Id != null', ['01t8s00000A8ZPRAA3'], 'u')
+      ).rejects.toThrow(/Invalid Salesforce object name/);
     });
   });
 
-  describe('clearCache', () => {
-    it('should clear the prefix cache', () => {
-      salesforceMetadataService.prefixCache = { '01t': 'Product2' };
-      salesforceMetadataService.clearCache();
-      expect(salesforceMetadataService.prefixCache).toEqual({});
+  describe('getObjectInfo', () => {
+    it('returns the first EntityDefinition row', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ stdout: records([{ QualifiedApiName: 'Product2', KeyPrefix: '01t' }]) }));
+      await expect(salesforceMetadataService.getObjectInfo('Product2', 'u')).resolves.toMatchObject({ KeyPrefix: '01t' });
+    });
+
+    it('returns null when nothing matches', async () => {
+      spawnSafe.mockImplementation(() => fakeChild({ stdout: records([]) }));
+      await expect(salesforceMetadataService.getObjectInfo('Product2', 'u')).resolves.toBeNull();
     });
   });
 });
-

@@ -1,4 +1,4 @@
-const tempFileService = require('../services/tempFileService');
+const tempFileService = require('../../services/tempFileService');
 const fs = require('fs-extra');
 const path = require('path');
 

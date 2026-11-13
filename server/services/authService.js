@@ -4,17 +4,16 @@ const { User } = require('../models');
 const { Op } = require('sequelize');
 const { ValidationError, UnauthorizedError, NotFoundError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+const { getJwtSecret, getDataDir } = require('../utils/secrets');
 
 class AuthService {
   constructor() {
-    // Require JWT_SECRET in production - fail fast if not set
-    if (!process.env.JWT_SECRET) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('CRITICAL: JWT_SECRET environment variable must be set in production');
-      }
-      logger.warn('WARNING: Using fallback JWT secret - NOT SAFE FOR PRODUCTION');
-    }
-    this.jwtSecret = process.env.JWT_SECRET || 'fallback-dev-secret-DO-NOT-USE-IN-PRODUCTION';
+    // JWT_SECRET is mandatory in production; in development a random secret is
+    // generated once and persisted under DATA_DIR (see utils/secrets.js).
+    this.jwtSecret = getJwtSecret();
     this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '24h';
     this.bcryptRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
     this.MAX_LOGIN_ATTEMPTS = 5;
@@ -380,55 +379,103 @@ class AuthService {
   /**
    * Create default users if they don't exist
    */
-  async createDefaultUsers() {
+  /**
+   * Make sure an administrator exists.
+   *
+   * On a fresh database a single admin account is created from
+   * ADMIN_USERNAME / ADMIN_EMAIL / ADMIN_PASSWORD. When ADMIN_PASSWORD is not
+   * set, a random password is generated and written to
+   * <DATA_DIR>/initial-admin-password.txt (and printed once in development).
+   * No well-known passwords are ever created.
+   */
+  async ensureAdminUser() {
+    const userCount = await User.count();
+    if (userCount > 0) {
+      await this.warnOnLegacyDefaultPasswords();
+      return { created: false };
+    }
+
+    const username = process.env.ADMIN_USERNAME || 'admin';
+    const email = process.env.ADMIN_EMAIL || 'admin@example.com';
+    let password = process.env.ADMIN_PASSWORD;
+    let generated = false;
+
+    if (password) {
+      const problems = this.validatePasswordStrength(password);
+      if (problems.length) {
+        throw new Error(`ADMIN_PASSWORD is too weak: ${problems.join(', ')}`);
+      }
+    } else {
+      password = this.generatePassword();
+      generated = true;
+    }
+
+    const hashedPassword = await bcrypt.hash(password, this.bcryptRounds);
+    await User.create({
+      username,
+      email,
+      password: hashedPassword,
+      firstName: 'System',
+      lastName: 'Administrator',
+      role: 'admin',
+    });
+
+    if (generated) {
+      const dir = getDataDir();
+      const file = path.join(dir, 'initial-admin-password.txt');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        file,
+        `username: ${username}\npassword: ${password}\n\nChange this password after the first login and delete this file.\n`,
+        { encoding: 'utf8', mode: 0o600 }
+      );
+      logger.warn(`Created initial admin user "${username}". Generated password saved to ${file}`);
+      if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
+        console.log(`\n  Initial admin credentials  ->  ${username} / ${password}\n  (also saved to ${file})\n`);
+      }
+    } else {
+      logger.info(`Created initial admin user "${username}" from ADMIN_PASSWORD`);
+    }
+
+    return { created: true, username, generated };
+  }
+
+  /**
+   * Older versions seeded admin/developer/functional with published passwords.
+   * Log a loud warning if any of them is still in use.
+   */
+  async warnOnLegacyDefaultPasswords() {
+    const legacy = { admin: 'Admin123!', developer: 'Dev123!', functional: 'Func123!' };
     try {
-      const defaultUsers = [
-        {
-          username: 'admin',
-          email: 'admin@amplifon.com',
-          password: 'Admin123!',
-          firstName: 'System',
-          lastName: 'Administrator',
-          role: 'admin'
-        },
-        {
-          username: 'developer',
-          email: 'developer@amplifon.com',
-          password: 'Dev123!',
-          firstName: 'John',
-          lastName: 'Developer',
-          role: 'developer'
-        },
-        {
-          username: 'functional',
-          email: 'functional@amplifon.com',
-          password: 'Func123!',
-          firstName: 'Jane',
-          lastName: 'Functional',
-          role: 'functional'
-        }
-      ];
-
-      for (const userData of defaultUsers) {
-        const existingUser = await User.findOne({
-          where: { username: userData.username }
-        });
-
-        if (!existingUser) {
-          const hashedPassword = await bcrypt.hash(userData.password, this.bcryptRounds);
-          await User.create({
-            ...userData,
-            password: hashedPassword
-          });
-          logger.info(`Created default user: ${userData.username}`);
+      const users = await User.findAll({ where: { username: Object.keys(legacy) } });
+      for (const u of users) {
+        if (u.password && await bcrypt.compare(legacy[u.username], u.password)) {
+          logger.warn(`SECURITY: user "${u.username}" still uses the old published default password. Change it now.`);
         }
       }
-
-      logger.info('✅ Default users created/verified');
     } catch (error) {
-      logger.logError(error, { operation: 'createDefaultUsers' });
-      throw error;
+      logger.debug ? logger.debug('Legacy password check skipped', { error: error.message }) : null;
     }
+  }
+
+  validatePasswordStrength(password) {
+    const problems = [];
+    if (!password || password.length < 12) problems.push('at least 12 characters');
+    if (!/[a-z]/.test(password)) problems.push('a lowercase letter');
+    if (!/[A-Z]/.test(password)) problems.push('an uppercase letter');
+    if (!/[0-9]/.test(password)) problems.push('a digit');
+    return problems;
+  }
+
+  generatePassword() {
+    // 18 random bytes -> 24 base64url chars; append fixed classes to satisfy policy
+    return `${crypto.randomBytes(18).toString('base64url')}Aa1`;
+  }
+
+  /** @deprecated kept for backwards compatibility – use ensureAdminUser() */
+  async createDefaultUsers() {
+    return this.ensureAdminUser();
   }
 }
 

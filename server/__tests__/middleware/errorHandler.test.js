@@ -1,10 +1,20 @@
-const { errorHandler, ValidationError, NotFoundError, AuthenticationError } = require('../../middleware/errorHandler');
+const {
+  errorHandler,
+  ValidationError,
+  NotFoundError,
+  UnauthorizedError,
+  ForbiddenError,
+  AppError,
+} = require('../../middleware/errorHandler');
 
 describe('Error Handler Middleware', () => {
-  let mockReq, mockRes, mockNext;
+  let mockReq;
+  let mockRes;
+  let mockNext;
+  const originalEnv = process.env.NODE_ENV;
 
   beforeEach(() => {
-    mockReq = {};
+    mockReq = { url: '/api/test', method: 'GET', ip: '127.0.0.1', headers: {} };
     mockRes = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn(),
@@ -12,126 +22,75 @@ describe('Error Handler Middleware', () => {
     mockNext = jest.fn();
   });
 
-  describe('ValidationError', () => {
-    it('should create validation error with correct properties', () => {
-      const error = new ValidationError('Invalid input');
-      
-      expect(error.name).toBe('ValidationError');
-      expect(error.message).toBe('Invalid input');
-      expect(error.statusCode).toBe(400);
-      expect(error.isOperational).toBe(true);
-    });
+  afterEach(() => {
+    process.env.NODE_ENV = originalEnv;
   });
 
-  describe('NotFoundError', () => {
-    it('should create not found error with correct properties', () => {
-      const error = new NotFoundError('Resource not found');
-      
-      expect(error.name).toBe('NotFoundError');
-      expect(error.message).toBe('Resource not found');
-      expect(error.statusCode).toBe(404);
-      expect(error.isOperational).toBe(true);
-    });
-  });
-
-  describe('AuthenticationError', () => {
-    it('should create authentication error with correct properties', () => {
-      const error = new AuthenticationError('Unauthorized');
-      
-      expect(error.name).toBe('AuthenticationError');
-      expect(error.message).toBe('Unauthorized');
-      expect(error.statusCode).toBe(401);
+  describe('error classes', () => {
+    it.each([
+      [ValidationError, 'ValidationError', 400],
+      [UnauthorizedError, 'UnauthorizedError', 401],
+      [ForbiddenError, 'ForbiddenError', 403],
+      [NotFoundError, 'NotFoundError', 404],
+    ])('%p has the right name and status', (Cls, name, statusCode) => {
+      const error = new Cls('boom');
+      expect(error).toBeInstanceOf(AppError);
+      expect(error.name).toBe(name);
+      expect(error.statusCode).toBe(statusCode);
+      expect(error.message).toBe('boom');
       expect(error.isOperational).toBe(true);
     });
   });
 
   describe('errorHandler', () => {
-    it('should handle ValidationError correctly', () => {
-      const error = new ValidationError('Invalid input');
-      
-      errorHandler(error, mockReq, mockRes, mockNext);
-      
+    it('maps ValidationError to 400', () => {
+      errorHandler(new ValidationError('Invalid input'), mockReq, mockRes, mockNext);
       expect(mockRes.status).toHaveBeenCalledWith(400);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        success: false,
-        error: {
-          name: 'ValidationError',
-          message: 'Invalid input',
-          statusCode: 400,
-        },
-      });
+      const body = mockRes.json.mock.calls[0][0];
+      expect(body.error).toMatchObject({ message: 'Validation Error', statusCode: 400, path: '/api/test', method: 'GET' });
     });
 
-    it('should handle NotFoundError correctly', () => {
-      const error = new NotFoundError('Resource not found');
-      
-      errorHandler(error, mockReq, mockRes, mockNext);
-      
+    it('maps UnauthorizedError to 401', () => {
+      errorHandler(new UnauthorizedError('No token provided'), mockReq, mockRes, mockNext);
+      expect(mockRes.status).toHaveBeenCalledWith(401);
+      expect(mockRes.json.mock.calls[0][0].error.statusCode).toBe(401);
+    });
+
+    it('maps NotFoundError to 404', () => {
+      errorHandler(new NotFoundError('Resource not found'), mockReq, mockRes, mockNext);
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        success: false,
-        error: {
-          name: 'NotFoundError',
-          message: 'Resource not found',
-          statusCode: 404,
-        },
-      });
     });
 
-    it('should handle generic errors', () => {
-      const error = new Error('Something went wrong');
-      
-      errorHandler(error, mockReq, mockRes, mockNext);
-      
+    it('returns 500 for generic errors', () => {
+      errorHandler(new Error('Something went wrong'), mockReq, mockRes, mockNext);
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalledWith({
-        success: false,
-        error: {
-          name: 'Error',
-          message: 'Something went wrong',
-          statusCode: 500,
-        },
-      });
+      expect(mockRes.json.mock.calls[0][0].error.message).toBe('Something went wrong');
     });
 
-    it('should handle errors without message', () => {
-      const error = {};
-      
-      errorHandler(error, mockReq, mockRes, mockNext);
-      
+    it('works with request objects that have no get() helper', () => {
+      expect(() => errorHandler({}, {}, mockRes, mockNext)).not.toThrow();
       expect(mockRes.status).toHaveBeenCalledWith(500);
-      expect(mockRes.json).toHaveBeenCalled();
     });
 
-    it('should include stack trace in development mode', () => {
-      const originalEnv = process.env.NODE_ENV;
+    it('includes the stack for 5xx errors in development', () => {
       process.env.NODE_ENV = 'development';
-      
       const error = new Error('Test error');
-      error.stack = 'Error stack trace';
-      
       errorHandler(error, mockReq, mockRes, mockNext);
-      
-      const jsonCall = mockRes.json.mock.calls[0][0];
-      expect(jsonCall.error.stack).toBeDefined();
-      
-      process.env.NODE_ENV = originalEnv;
+      expect(mockRes.json.mock.calls[0][0].error.stack).toBeDefined();
     });
 
-    it('should not include stack trace in production mode', () => {
-      const originalEnv = process.env.NODE_ENV;
+    it('never includes the stack for 4xx errors', () => {
+      process.env.NODE_ENV = 'development';
+      errorHandler(new ValidationError('bad'), mockReq, mockRes, mockNext);
+      expect(mockRes.json.mock.calls[0][0].error.stack).toBeUndefined();
+    });
+
+    it('hides internal messages and stack in production', () => {
       process.env.NODE_ENV = 'production';
-      
-      const error = new Error('Test error');
-      error.stack = 'Error stack trace';
-      
-      errorHandler(error, mockReq, mockRes, mockNext);
-      
-      const jsonCall = mockRes.json.mock.calls[0][0];
-      expect(jsonCall.error.stack).toBeUndefined();
-      
-      process.env.NODE_ENV = originalEnv;
+      errorHandler(new Error('db password is hunter2'), mockReq, mockRes, mockNext);
+      const body = mockRes.json.mock.calls[0][0];
+      expect(body.error.message).toBe('Internal Server Error');
+      expect(body.error.stack).toBeUndefined();
     });
   });
 });
-

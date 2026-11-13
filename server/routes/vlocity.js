@@ -276,7 +276,7 @@ router.get('/metadata/:type/:name', asyncHandler(async (req, res) => {
 
   try {
     // Get specific metadata using Salesforce CLI
-    const { spawn } = require('child_process');
+    const { spawnSafe: spawn } = require('../utils/processRunner');
     
     const result = await new Promise((resolve, reject) => {
       const child = spawn('sfdx', [
@@ -416,14 +416,13 @@ async function getOrgInfo(username) {
     await salesforceService.authenticateWithSfdx(username);
     
     // Get org info using Salesforce CLI
-    const { spawn } = require('child_process');
+    const { spawnSafe: spawn } = require('../utils/processRunner');
     
     return new Promise((resolve, reject) => {
       const child = spawn('sf', [
         'org', 'display', '--target-org', username, '--json'
       ], {
         stdio: ['pipe', 'pipe', 'pipe'],
-        shell: true,
         windowsHide: true
       });
 

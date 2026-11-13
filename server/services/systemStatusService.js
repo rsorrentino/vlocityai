@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const { SystemStatus } = require('../models');
 const logger = require('../utils/logger');
 const databaseService = require('./databaseService');
@@ -97,19 +97,15 @@ class SystemStatusService {
   async checkSalesforceCLI() {
     try {
       // Try modern 'sf' CLI first, fallback to legacy 'sfdx'
-      // Use shell execution for better Windows compatibility
+      // cross-spawn resolves .cmd shims on Windows, no shell needed
       let result;
       let command = 'sf';
       
       const approaches = [
-        // Approach 1: Try 'sf' command with shell (works on Windows)
+        // Approach 1: modern 'sf' CLI
         () => this.executeCommandWithShell('sf', ['--version']),
-        // Approach 2: Try 'sfdx' command with shell (legacy)
+        // Approach 2: legacy 'sfdx' CLI
         () => this.executeCommandWithShell('sfdx', ['--version']),
-        // Approach 3: Try 'sf.cmd' on Windows
-        () => this.executeCommandWithShell('sf.cmd', ['--version']),
-        // Approach 4: Try 'sfdx.cmd' on Windows
-        () => this.executeCommandWithShell('sfdx.cmd', ['--version']),
       ];
 
       let found = false;
@@ -170,10 +166,8 @@ class SystemStatusService {
 
   executeCommandWithShell(command, args = []) {
     return new Promise((resolve, reject) => {
-      const isWindows = process.platform === 'win32';
       const child = spawn(command, args, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: isWindows, // Use shell on Windows for better PATH resolution
         windowsHide: true,
         timeout: 10000
       });

@@ -5,9 +5,14 @@
 
 const fs = require('fs').promises;
 const path = require('path');
-const { spawn } = require('child_process');
-const util = require('util');
-const exec = util.promisify(require('child_process').exec);
+const { runCommand } = require('../utils/processRunner');
+
+// Shell-free replacement for promisified child_process.exec.
+// Accepts the command as an argv array so no shell parsing is involved.
+const exec = async (argv) => {
+  const [cmd, ...args] = argv;
+  return runCommand(cmd, args, { timeout: 30000, rejectOnError: true, stdio: ['ignore', 'pipe', 'pipe'] });
+};
 
 class CommandValidator {
   /**
@@ -272,7 +277,7 @@ class CommandValidator {
    */
   async checkVlocityCLI() {
     try {
-      const { stdout } = await exec('vlocity --version');
+      const { stdout } = await exec(['vlocity', '--version']);
       const versionMatch = stdout.match(/(\d+\.\d+\.\d+)/);
       return {
         installed: true,
@@ -292,7 +297,7 @@ class CommandValidator {
   async checkSalesforceCLI() {
     try {
       // Try 'sf' first (new CLI)
-      const { stdout } = await exec('sf version');
+      const { stdout } = await exec(['sf', 'version']);
       const versionMatch = stdout.match(/(\d+\.\d+\.\d+)/);
       return {
         installed: true,
@@ -302,7 +307,7 @@ class CommandValidator {
     } catch (err) {
       try {
         // Fallback to 'sfdx' (legacy CLI)
-        const { stdout } = await exec('sfdx version');
+        const { stdout } = await exec(['sfdx', 'version']);
         const versionMatch = stdout.match(/(\d+\.\d+\.\d+)/);
         return {
           installed: true,
@@ -324,7 +329,7 @@ class CommandValidator {
    */
   async checkSalesforceAuth(username) {
     try {
-      const { stdout } = await exec(`sfdx org:list --json`);
+      const { stdout } = await exec(['sf', 'org', 'list', '--json']);
       const result = JSON.parse(stdout);
 
       const org = result.result.nonScratchOrgs?.find(o => o.username === username) ||
@@ -410,31 +415,12 @@ class CommandValidator {
    */
   async checkDiskSpace() {
     try {
-      if (process.platform === 'win32') {
-        const { stdout } = await exec('wmic logicaldisk get size,freespace,caption');
-        const lines = stdout.trim().split('\n');
-        // Parse C: drive
-        const cDrive = lines.find(line => line.includes('C:'));
-        if (cDrive) {
-          const match = cDrive.match(/(\d+)\s+(\d+)/);
-          if (match) {
-            return {
-              available: parseInt(match[1]),
-              total: parseInt(match[2]),
-            };
-          }
-        }
-      } else {
-        const { stdout } = await exec('df -k .');
-        const lines = stdout.trim().split('\n');
-        if (lines.length > 1) {
-          const parts = lines[1].trim().split(/\s+/);
-          return {
-            available: parseInt(parts[3]) * 1024, // Convert KB to bytes
-            total: parseInt(parts[1]) * 1024,
-          };
-        }
-      }
+      // fs.statfs is available on Windows, Linux and macOS (Node >= 18.15)
+      const stats = await fs.statfs(process.cwd());
+      return {
+        available: Number(stats.bavail) * Number(stats.bsize),
+        total: Number(stats.blocks) * Number(stats.bsize),
+      };
     } catch (err) {
       // If disk space check fails, return default
     }

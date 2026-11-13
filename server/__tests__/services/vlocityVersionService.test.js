@@ -1,4 +1,4 @@
-const vlocityVersionService = require('../services/vlocityVersionService');
+const vlocityVersionService = require('../../services/vlocityVersionService');
 
 describe('VlocityVersionService', () => {
   beforeEach(() => {
@@ -44,7 +44,14 @@ describe('VlocityVersionService', () => {
       
       const otherVersion = '1.17.19';
       const otherCommand = vlocityVersionService.getVersionCommand(otherVersion);
-      expect(otherCommand).toBe(`vlocity@${otherVersion}`);
+      expect(otherCommand).toBe(`npx --yes vlocity@${otherVersion}`);
+      expect(vlocityVersionService.getVersionCommandParts(otherVersion))
+        .toEqual(['npx', '--yes', `vlocity@${otherVersion}`]);
+    });
+
+    it('should reject versions that are not semver (no argument injection)', () => {
+      expect(() => vlocityVersionService.getVersionCommandParts('1.0.0 && rm -rf /')).toThrow(/Invalid Vlocity version/);
+      expect(() => vlocityVersionService.getVersionCommandParts('--registry=http://evil')).toThrow(/Invalid Vlocity version/);
     });
   });
 

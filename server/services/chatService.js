@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 const { runAnthropicStream } = require('./aiAdapters/anthropicAdapter');
-const { runOpenAIStream } = require('./aiAdapters/openaiAdapter');
+const { runOpenAIStream, SUPPORTED_ADAPTERS: OPENAI_COMPATIBLE_ADAPTERS } = require('./aiAdapters/openaiAdapter');
 
 // Lazy-load DB to avoid circular imports at startup
 function getDb() {
@@ -403,7 +403,7 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
         onToolStart,
         onToolEnd,
       });
-    } else if (['openai', 'copilot', 'ollama'].includes(adapterType)) {
+    } else if (OPENAI_COMPATIBLE_ADAPTERS.includes(adapterType)) {
       result = await runOpenAIStream({
         adapterType,
         messages: history,
@@ -411,6 +411,7 @@ async function streamMessage({ res, conversationId, userMessage, userId, adapter
         apiKey: adapterConfig?.apiKey,
         model: adapterConfig?.model,
         baseURL: adapterConfig?.baseURL,
+        userId,
         orgUsername: orgToUse,
         onToken,
         onToolStart,

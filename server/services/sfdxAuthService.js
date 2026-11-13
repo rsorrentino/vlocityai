@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
 /**
@@ -38,7 +38,6 @@ class SfdxAuthService {
       logger.info('Getting access token from SF CLI', { org: usernameOrAlias });
       
       const child = spawn(this.cliCommand, args, {
-        shell: true,
         windowsHide: true,
       });
 
@@ -122,7 +121,6 @@ class SfdxAuthService {
       logger.info('Listing orgs from SF CLI');
       
       const child = spawn(this.cliCommand, args, {
-        shell: true,
         windowsHide: true,
       });
 
@@ -238,7 +236,6 @@ class SfdxAuthService {
       logger.info('Executing SOQL via SF CLI', { org: usernameOrAlias });
       
       const child = spawn(this.cliCommand, args, {
-        shell: true,
         windowsHide: true,
       });
 
@@ -293,7 +290,6 @@ class SfdxAuthService {
   async isCliAvailable() {
     return new Promise((resolve) => {
       const child = spawn(this.cliCommand, ['--version'], {
-        shell: true,
         windowsHide: true,
       });
 

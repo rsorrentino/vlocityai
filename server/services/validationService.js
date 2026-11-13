@@ -12,7 +12,6 @@ class ValidationService {
       totalChecks: 0,
       passedChecks: 0,
       failedChecks: 0,
-      warnings: 0,
       errors: [],
       passed: [],
       warnings: [],
@@ -1945,7 +1944,7 @@ class ValidationService {
               if (isObjectNotSupported) {
                 // PricingStep object doesn't exist, skip this check
                 logger.debug('PricingStep object not available, skipping step count for pricing plan', { 
-                  planId: plan.Id,
+                  planIds: batch.length,
                   errorMessage: errorMessage.substring(0, 200) // Log first 200 chars for debugging
                 });
                 stepQueryFailed = true;

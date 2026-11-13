@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const logger = require('../utils/logger');
 
 // Run a SOQL query against a Salesforce org via the sf CLI

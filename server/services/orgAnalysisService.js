@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const { OrgAnalysis } = require('../models');
 const cacheService = require('./cacheService');
 const logger = require('../utils/logger');

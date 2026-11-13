@@ -1,5 +1,5 @@
 const net = require('net');
-const { spawn } = require('child_process');
+const spawn = require('cross-spawn');
 
 const NPM_CMD = 'npm';
 const DEFAULT_BACKEND_PORT = parseInt(process.env.PORT, 10) || 3001;
@@ -84,9 +84,7 @@ const spawnProcess = (args, env, cwd = process.cwd()) => {
     cwd,
     stdio: 'inherit',
     env,
-    // In Git Bash/WSL-hosted terminals on Windows, direct spawn of npm.cmd can fail with EINVAL.
-    // shell:true delegates command resolution to the active shell and avoids that portability issue.
-    shell: true,
+    // cross-spawn resolves npm.cmd on Windows (incl. Git Bash) without a shell.
   });
 };
 

@@ -1,0 +1,16 @@
+.git
+.github
+.vscode
+node_modules
+client/node_modules
+client/build
+coverage
+data
+logs
+uploads
+temp
+jobs
+snapshots
+.env
+.env.*
+*.log

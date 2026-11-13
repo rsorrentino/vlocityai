@@ -19,6 +19,7 @@ const vlocityErrorHandler = require('../services/vlocityErrorHandler');
 const { sortQueriesByDependency } = require('../config/datapckDependencies');
 const buildLogParser = require('../services/buildLogParser');
 const notificationService = require('../services/notificationService');
+const yamlConfigService = require('../services/yamlConfigService');
 const JOB_LOGS_DIR = path.join(__dirname, '../../logs/jobs');
 
 /**

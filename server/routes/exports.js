@@ -376,13 +376,15 @@ router.post('/run', asyncHandler(async (req, res) => {
   const {
     username,
     jobFilePath,
-    jobConfig,
+    jobConfig: requestJobConfig,
     enableRecovery = true,        // default ON — dependency errors are the main export failure mode
     maxRecoveryIterations = 10,
     useDependencyOrder = true,    // sort queries by known DataPack type dependency tiers
     cliType: requestCliType,
     exportCommand = 'packExport'
   } = req.body;
+  // Reassigned below when queries are sorted by dependency order
+  let jobConfig = requestJobConfig;
 
   if (!username) {
     throw new ValidationError('Username is required');

@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const path = require('path');
 const fs = require('fs-extra');
 const logger = require('../utils/logger');
@@ -12,7 +12,6 @@ const jobMonitor = require('./jobMonitor');
 async function checkSfdmuInstalled() {
   return new Promise((resolve) => {
     const child = spawn('sf', ['plugins', '--core'], {
-      shell: true,
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
     });
@@ -179,7 +178,6 @@ async function runMigration({ sourceUsername, targetUsername, exportConfig, jobI
   return new Promise((resolve, reject) => {
     const child = spawn('sf', args, {
       cwd: process.cwd(),
-      shell: true,
       windowsHide: true,
       stdio: ['pipe', 'pipe', 'pipe'],
       env: { ...process.env, NODE_NO_WARNINGS: '1' },

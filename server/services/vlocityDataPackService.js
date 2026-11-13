@@ -1,4 +1,4 @@
-const { spawn } = require('child_process');
+const { spawnSafe: spawn } = require('../utils/processRunner');
 const fs = require('fs-extra');
 const path = require('path');
 const yaml = require('yaml');

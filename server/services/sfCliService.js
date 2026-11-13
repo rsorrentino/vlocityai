@@ -1,4 +1,5 @@
-const { spawn } = require('child_process');
+const { spawnSafe, runCommand: runProcess, formatCommand } = require('../utils/processRunner');
+const { resolveSfCli } = require('../utils/sfCli');
 const fs = require('fs-extra');
 const path = require('path');
 const logger = require('../utils/logger');
@@ -55,17 +56,10 @@ class SfCliService {
   async executeCommand(args, options = {}) {
     const { username, jobId, cwd = process.cwd() } = options;
 
-    // Determine which SF CLI command to use (sf or sfdx)
-    let cliCommand = 'sf';
-    try {
-      await this.executeCommandWithShell(['sf', '--version']);
-    } catch (error) {
-      try {
-        await this.executeCommandWithShell(['sfdx', '--version']);
-        cliCommand = 'sfdx';
-      } catch (sfdxError) {
-        throw new ValidationError('Neither sf nor sfdx CLI found. Please install Salesforce CLI.');
-      }
+    // Determine which SF CLI command to use (sf or sfdx) – cached after first probe
+    const cliCommand = await resolveSfCli();
+    if (!cliCommand) {
+      throw new ValidationError('Neither sf nor sfdx CLI found. Please install Salesforce CLI.');
     }
 
     const runCommand = (controls = {}) => new Promise((resolve, reject) => {
@@ -84,53 +78,25 @@ class SfCliService {
         }
       }
 
-      const commandString = `${cliCommand} ${args.join(' ')}`;
+      const commandString = formatCommand(cliCommand, args);
       logger.info(`Executing SF CLI: ${commandString}`);
 
       if (jobId) {
-        // Store the full command string for later reference
-        const fullCommand = `${cliCommand} ${args.map(arg => arg.includes(' ') ? `"${arg}"` : arg).join(' ')}`;
-        jobMonitor.addJobLog(jobId, `📋 Executing: ${fullCommand}`, 'info');
-        
+        jobMonitor.addJobLog(jobId, `📋 Executing: ${commandString}`, 'info');
+
         logger.logJobVerbose(jobId, 'SF CLI command preparation', {
           command: cliCommand,
           args,
-          fullCommand,
+          fullCommand: commandString,
           username,
           cwd,
           timeout: this.timeout
         });
       }
 
-      // On Windows with shell mode, construct full command string for better compatibility
-      // This avoids issues with comma-separated SOQL queries being parsed incorrectly
-      let child;
-      if (process.platform === 'win32' && args.some(arg => typeof arg === 'string' && arg.includes(',') && arg.length > 100)) {
-        // For Windows with complex queries, use command string approach
-        const commandString = `${cliCommand} ${args.map(arg => {
-          // Properly escape and quote arguments that contain commas or spaces
-          if (typeof arg === 'string' && (arg.includes(',') || arg.includes(' '))) {
-            // Escape internal quotes and wrap in quotes
-            return `"${arg.replace(/"/g, '\\"')}"`;
-          }
-          return arg;
-        }).join(' ')}`;
-        
-        child = spawn(commandString, [], {
-          cwd,
-          env,
-          shell: true,
-          windowsHide: true
-        });
-      } else {
-        // Use standard spawn with args array
-        child = spawn(cliCommand, args, {
-          cwd,
-          env,
-          shell: process.platform === 'win32',
-          windowsHide: true
-        });
-      }
+      // Shell-free spawn: cross-spawn escapes every argument (including long
+      // comma-separated SOQL queries) correctly for cmd.exe on Windows.
+      const child = spawnSafe(cliCommand, args, { cwd, env });
       setProcess(child);
 
       let stdout = '';
@@ -517,37 +483,12 @@ class SfCliService {
    * Helper to execute command with shell for version check
    */
   async executeCommandWithShell(commandArgs) {
-    return new Promise((resolve, reject) => {
-      const isWindows = process.platform === 'win32';
-      const child = spawn(commandArgs[0], commandArgs.slice(1), {
-        shell: isWindows,
-        windowsHide: true,
-        timeout: 5000
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      child.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
-
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          resolve(stdout);
-        } else {
-          reject(new Error(stderr || `Command failed with code ${code}`));
-        }
-      });
-
-      child.on('error', (error) => {
-        reject(error);
-      });
+    const { code, stdout, stderr } = await runProcess(commandArgs[0], commandArgs.slice(1), {
+      timeout: 15000,
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
+    if (code === 0) return stdout;
+    throw new Error(stderr || `Command failed with code ${code}`);
   }
 
   /**

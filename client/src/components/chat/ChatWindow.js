@@ -24,7 +24,7 @@ import {
 import axios from 'axios';
 import ChatMessage from './ChatMessage';
 import AdapterSettings from './AdapterSettings';
-import { useAdapterConfig } from './AdapterSettings';
+import { useAdapterConfig, getAdapterApiKey, ADAPTERS } from './AdapterSettings';
 
 const WELCOME = 'Ask me anything about your Vlocity configuration — catalogs, products, pricing, promotions, and more.';
 const STARTER_PROMPTS = [
@@ -45,12 +45,7 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
   const conversationId = conversation?.id;
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const currentAdapterLabel = {
-    anthropic: 'Claude',
-    openai: 'OpenAI',
-    copilot: 'Copilot',
-    ollama: 'Ollama',
-  }[adapterConfig.adapter || 'anthropic'];
+  const currentAdapterLabel = (ADAPTERS.find(a => a.value === (adapterConfig.adapter || 'anthropic')) || ADAPTERS[0]).short;
 
   // Load messages when conversation changes
   useEffect(() => {
@@ -112,7 +107,7 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
           orgUsername: adapterConfig.orgUsername,
           adapter: adapterConfig.adapter,
           adapterConfig: {
-            apiKey: adapterConfig.apiKey,
+            apiKey: getAdapterApiKey(adapterConfig),
             model: adapterConfig.model,
             baseURL: adapterConfig.baseURL,
           },
@@ -121,7 +116,7 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: 'Request failed' }));
-        throw new Error(err.error || 'Request failed');
+        throw new Error(err.error?.message || err.error || 'Request failed');
       }
 
       const reader = res.body.getReader();
@@ -346,7 +341,7 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
               <Typography variant="caption" color="text.secondary">
                 Shift+Enter for new line
               </Typography>
-              {!adapterConfig.apiKey && ['anthropic', 'openai', 'copilot'].includes(adapterConfig.adapter || 'anthropic') && (
+              {!getAdapterApiKey(adapterConfig) && ['anthropic', 'openai', 'github-models'].includes(adapterConfig.adapter || 'anthropic') && (
                 <Typography variant="caption" color="warning.main">
                   Using server-side credentials if available
                 </Typography>
