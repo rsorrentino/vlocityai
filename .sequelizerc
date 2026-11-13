@@ -1,0 +1,9 @@
+// Paths used by `npm run db:migrate` (sequelize-cli). path.resolve keeps them
+// valid on Windows, macOS and Linux.
+const path = require('path');
+
+module.exports = {
+  config: path.resolve(__dirname, 'server', 'config', 'database.js'),
+  'migrations-path': path.resolve(__dirname, 'server', 'migrations'),
+  'models-path': path.resolve(__dirname, 'server', 'models'),
+};

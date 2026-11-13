@@ -23,6 +23,15 @@ Vlocity DataPack Manager is a complete solution for managing Vlocity DataPack op
 
 ## 🆕 Recent Changes (2026 Release)
 
+### MVP1 Hardening
+
+- **Login required everywhere**: every `/api` route, `/logs`, `/uploads` and the `/ws/jobs` WebSocket need a session. Only `POST /api/auth/login` and `GET /api/auth/status` are public.
+- **No shell execution**: every external CLI (`sf`, `sfdx`, `vlocity`, `npm`, `pg_dump`, …) runs through `server/utils/processRunner.js` (cross-spawn, argv arrays, no shell). Windows `.cmd` shims work without `shell: true`, so user input can't inject commands on any OS.
+- **No default passwords**: one admin is bootstrapped from `ADMIN_*` env vars or a generated password; `JWT_SECRET` is mandatory in production.
+- **GitHub Copilot adapter** with *Sign in with GitHub*, plus a GitHub Models adapter.
+- **Cross-platform**: CI runs lint, tests and a server smoke test on Windows, macOS and Linux.
+- **Startup**: `/health` and `/api` answer 503 until the database is ready; Redis is optional and never blocks startup.
+
 ### AI Chat Agent (`/chat`)
 
 A full conversational AI interface that lets users query live Vlocity/Salesforce org data in natural language — no SOQL required.
@@ -33,14 +42,30 @@ The AI agent runs a server-side agentic loop: it receives your question, decides
 
 #### Supported AI adapters
 
-| Adapter | Provider | Key source |
-|---------|----------|-----------|
+| Adapter | Provider | Credentials |
+|---------|----------|-------------|
 | Anthropic (Claude) | `@anthropic-ai/sdk` | `ANTHROPIC_API_KEY` env var or UI |
-| OpenAI (GPT-4o) | `openai` npm package | `OPENAI_API_KEY` env var or UI |
-| GitHub Copilot | `openai` (custom base URL) | `GITHUB_TOKEN` env var or UI |
+| GitHub Copilot | Copilot chat API (OpenAI-compatible) | **Sign in with GitHub** in the chat settings (per user), or `GITHUB_COPILOT_TOKEN` |
+| GitHub Models | `models.github.ai` (OpenAI-compatible) | `GITHUB_MODELS_TOKEN` (fine-grained PAT with *Models: read*) or UI |
+| OpenAI | `openai` npm package | `OPENAI_API_KEY` env var or UI |
 | Ollama (local) | `openai` (localhost) | No key needed |
 
-API keys entered in the UI are held in `localStorage` and sent per-request — they are **never stored on the server or in the database**.
+API keys typed in the UI stay in the browser (`localStorage`, one key per adapter) and are sent per request — they are **never stored on the server**. The only credential stored server-side is the GitHub token from *Sign in with GitHub*, encrypted with AES-256-GCM per user.
+
+#### Using GitHub Copilot
+
+1. Open **AI Chat → ⚙ (adapter settings)** and choose **GitHub Copilot**.
+2. Click **Sign in with GitHub**. A code is shown and github.com/login/device opens in a new tab.
+3. Enter the code and authorize. The settings dialog then shows *Copilot connected as &lt;login&gt;* and lists the models your Copilot plan allows (GPT-4.1, Claude, Gemini, …).
+4. Pick a model and save.
+
+Requirements and notes:
+
+- The GitHub account needs an active Copilot subscription (Individual, Business or Enterprise). Business/Enterprise endpoints are detected automatically.
+- Personal access tokens (`ghp_…`, `github_pat_…`) are **not** accepted by Copilot. Use *Sign in with GitHub*, or set `GITHUB_COPILOT_TOKEN` to a GitHub OAuth token (`gho_…`/`ghu_…`). If you only have a PAT, use the **GitHub Models** adapter instead.
+- Single-user desktop installs can set `COPILOT_USE_LOCAL_TOKEN=true` to reuse the Copilot sign-in of VS Code/JetBrains on the same machine (`%LOCALAPPDATA%\github-copilot` on Windows, `~/.config/github-copilot` on macOS/Linux). Every app user then shares that account, so keep it off for shared servers.
+- Behind a corporate proxy, set `HTTPS_PROXY` (and `NO_PROXY`); AI calls honour it on every OS.
+- Sign-in uses the OAuth client of GitHub's Copilot editor integration (the same approach as other third-party Copilot clients). Set `COPILOT_OAUTH_CLIENT_ID` if your organisation provides its own Copilot-enabled OAuth app.
 
 #### Available agent tools
 
@@ -85,13 +110,14 @@ API keys entered in the UI are held in `localStorage` and sent per-request — t
 # Run the DB migration once to create the chat tables
 npm run db:migrate
 
-# Add your preferred API key to .env (or enter it in the UI per-session)
+# Chat tables are also created automatically on first use.
+
+# Optional server-side keys in .env (users can also enter their own in the UI)
 ANTHROPIC_API_KEY=sk-ant-...
-# or
 OPENAI_API_KEY=sk-...
-# or
-GITHUB_TOKEN=ghp_...
-# or — for Ollama, just ensure it's running locally (no key needed)
+GITHUB_MODELS_TOKEN=github_pat_...
+# GitHub Copilot: no key needed – users click "Sign in with GitHub"
+# Ollama: just ensure it's running locally (no key needed)
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
@@ -1062,28 +1088,47 @@ The system status panel now checks:
 
 ### **Quick Start (Development)**
 
+The same steps work on **Windows (PowerShell or cmd), macOS and Linux**. Requires Node.js 20.9+.
+
 ```bash
-# Complete setup (installs dependencies and CLI tools)
+# Install server + client dependencies
 npm run setup
 
-# Copy environment template
+# Salesforce CLI + Vlocity Build (needed for export/deploy jobs)
+npm run install-cli-tools
+
+# Copy environment template (Windows cmd: copy env.template .env)
 cp env.template .env
 
-# Create default users
-npm run create-users
-
-# Start development server
+# Start backend + frontend with automatic free ports
 npm run dev-full
 ```
+
+On the first start the app creates one administrator:
+
+- If `ADMIN_PASSWORD` is set in `.env`, that password is used (12+ characters, upper/lower case and a digit).
+- Otherwise a random password is generated, printed once in the console (development) and saved to `data/initial-admin-password.txt`. Log in, change it, and delete the file.
+
+There are no built-in demo accounts. Create further users from **User Management**.
+
+No PostgreSQL? Set `DATABASE_URL=sqlite:./data/vlocity_manager.db` (or leave PostgreSQL unreachable and the app falls back to SQLite). Redis is optional.
+
+### **Docker**
+
+```bash
+cp env.template .env      # set JWT_SECRET, POSTGRES_PASSWORD and ADMIN_PASSWORD
+docker compose up -d --build
+```
+
+The image includes the Salesforce CLI and Vlocity Build tool. Browser-based `sf org login web` is not possible inside a container; authorise orgs with `sf org login jwt` or `sf org login sfdx-url` (`docker compose exec app sf org login sfdx-url --sfdx-url-file ...`). Org auth is kept in the `sf_auth`/`sfdx_auth` volumes.
 
 ### **NPM Scripts**
 
 ```bash
 # Installation
-npm run install-vlocity          # Install Vlocity CLI globally
-npm run install-sfdx             # Install Salesforce CLI globally
-npm run install-cli-tools        # Install both CLI tools
-npm run setup                    # Complete setup
+npm run setup                    # Install server + client dependencies
+npm run install-cli-tools        # Install Salesforce CLI + Vlocity Build globally
+npm run check-cli-tools          # Show which CLI tools are installed
 
 # Development
 npm start                        # Start production server
@@ -1092,20 +1137,17 @@ npm run dev-full                 # Start both backend and frontend
 npm run build                    # Build React frontend
 
 # Testing
-npm test                         # Run all tests
-npm run test:unit                # Run unit tests
-npm run test:integration         # Run integration tests
-npm run test:enterprise          # Run enterprise tests
-npm run test:e2e                 # Run E2E tests
-npm run test:load                # Run load tests
+npm test                         # Run all tests with coverage
+npm run test:unit                # Unit tests
+npm run test:integration         # Integration tests (real app, in-memory SQLite)
+node scripts/smoke-test.js       # Start the server and check health/auth/login
 
 # Code Quality
 npm run lint                     # Run ESLint
 npm run format                   # Format code with Prettier
 
 # Database
-npm run create-users             # Create default users
-npm run migrate-schema           # Migrate existing tables to schema
+npm run create-users             # Create the initial admin (if no users exist)
 npm run migrate-sfdmu-type       # Add 'sfdmu' to PostgreSQL job type enum (run once after upgrade)
 ```
 
@@ -1183,13 +1225,9 @@ LOG_MAX_FILES=5
 - Job execution, pricing management, promotions management
 - Read-only access on most resources
 
-### **Default User Accounts**
+### **User Accounts**
 
-| Username    | Email                     | Password  | Role        |
-|-------------|---------------------------|-----------|-------------|
-| `admin`     | admin@amplifon.com        | Admin123! | Admin       |
-| `developer` | developer@amplifon.com    | Dev123!   | Developer   |
-| `functional`| functional@amplifon.com   | Func123!  | Functional  |
+Only an initial administrator is created (see *Quick Start*). Older versions shipped `admin`/`developer`/`functional` accounts with published passwords; if those accounts still exist in your database the server logs a security warning until their passwords are changed.
 
 ---
 

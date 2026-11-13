@@ -7,7 +7,7 @@ echo 🚀 Starting Vlocity DataPack Manager Setup...
 REM Check if Node.js is installed
 node --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ Node.js is not installed. Please install Node.js ^>= 18.0.0
+    echo ❌ Node.js is not installed. Please install Node.js ^>= 20.9.0
     pause
     exit /b 1
 )

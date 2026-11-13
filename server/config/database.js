@@ -1,10 +1,12 @@
 require('dotenv').config();
 const path = require('path');
 
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, '../../data');
+
 const config = {
   development: {
     dialect: 'sqlite',
-    storage: path.join(__dirname, '../../data/vlocity_manager.db'),
+    storage: path.join(dataDir, 'vlocity_manager.db'),
     logging: console.log,
   },
   test: {
@@ -33,7 +35,7 @@ const config = {
   // Internal SQLite fallback used when PostgreSQL is configured but unavailable
   sqlite_fallback: {
     dialect: 'sqlite',
-    storage: path.join(__dirname, '../../data/vlocity_manager.db'),
+    storage: path.join(dataDir, 'vlocity_manager.db'),
     logging: false,
   },
 };

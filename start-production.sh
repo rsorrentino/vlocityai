@@ -18,14 +18,14 @@ fi
 
 # Check if Node.js is installed
 if ! command -v node &> /dev/null; then
-    echo "❌ Node.js is not installed. Please install Node.js >= 18.0.0"
+    echo "❌ Node.js is not installed. Please install Node.js >= 20.9.0"
     exit 1
 fi
 
 # Check Node.js version
 NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
-if [ "$NODE_VERSION" -lt 18 ]; then
-    echo "❌ Node.js version $NODE_VERSION is too old. Please install Node.js >= 18.0.0"
+if [ "$NODE_VERSION" -lt 20 ]; then
+    echo "❌ Node.js version $NODE_VERSION is too old. Please install Node.js >= 20.9.0"
     exit 1
 fi
 
