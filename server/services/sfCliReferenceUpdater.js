@@ -58,7 +58,7 @@ class SfCliReferenceUpdater {
           if (cleanStdout) {
             try {
               // Look for JSON error response
-              const jsonStart = cleanStdout.search(/[\{\[]/);
+              const jsonStart = cleanStdout.search(/[{[]/);
               if (jsonStart >= 0) {
                 const jsonEnd = Math.max(cleanStdout.lastIndexOf('}'), cleanStdout.lastIndexOf(']'));
                 if (jsonEnd > jsonStart) {
@@ -128,7 +128,7 @@ class SfCliReferenceUpdater {
           
           // Remove any leading non-JSON text (warnings, etc.)
           // Look for first { or [ character
-          const jsonStart = jsonContent.search(/[\{\[]/);
+          const jsonStart = jsonContent.search(/[{[]/);
           if (jsonStart > 0) {
             jsonContent = jsonContent.substring(jsonStart);
           }
@@ -149,7 +149,7 @@ class SfCliReferenceUpdater {
             stderrContent = stderrContent.replace(/\u001b\[[0-9;]*m/g, '');
             stderrContent = stderrContent.replace(/\x1b\[[0-9;]*m/g, '');
             
-            const stderrJsonStart = stderrContent.search(/[\{\[]/);
+            const stderrJsonStart = stderrContent.search(/[{[]/);
             if (stderrJsonStart >= 0) {
               jsonContent = stderrContent.substring(stderrJsonStart);
               const stderrLastBrace = jsonContent.lastIndexOf('}');

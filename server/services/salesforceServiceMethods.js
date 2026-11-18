@@ -96,7 +96,7 @@ async function updateRecord(recordId, recordData, username, salesforceService) {
       throw new Error(`Cannot determine object type for record ID: ${recordId}`);
     }
     
-    const response = await axios.patch(
+    await axios.patch(
       `${salesforceService.baseUrl}/sobjects/${objectType}/${recordId}`,
       recordData,
       { headers: { Authorization: `Bearer ${salesforceService.accessToken}` } }
@@ -127,7 +127,7 @@ async function deleteRecord(recordId, username, salesforceService) {
       throw new Error(`Cannot determine object type for record ID: ${recordId}`);
     }
     
-    const response = await axios.delete(
+    await axios.delete(
       `${salesforceService.baseUrl}/sobjects/${objectType}/${recordId}`,
       { headers: { Authorization: `Bearer ${salesforceService.accessToken}` } }
     );

@@ -23,7 +23,7 @@ const server = spawn(process.execPath, [path.join(__dirname, '..', 'server', 'in
     NODE_ENV: 'development',
     PORT: String(PORT),
     DATA_DIR: dataDir,
-    DATABASE_URL: `sqlite:${path.join(dataDir, 'smoke.db')}`,
+    DATABASE_URL: process.env.SMOKE_DATABASE_URL || `sqlite:${path.join(dataDir, 'smoke.db')}`,
     REDIS_URL: 'redis://127.0.0.1:1',
     REDIS_AUTOSTART: 'false',
     ADMIN_USERNAME: 'admin',

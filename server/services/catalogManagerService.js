@@ -1,6 +1,5 @@
 const axios = require('axios');
 const salesforceService = require('./salesforceService');
-const logger = require('../utils/logger');
 const { ValidationRuleEngine } = require('./validationRuleEngine');
 const { duplicatePricingElementRule } = require('../validators/pricingValidators');
 const { duplicateCatalogProductRelationshipRule } = require('../validators/catalogValidators');

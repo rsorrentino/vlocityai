@@ -39,7 +39,6 @@ class RetryService {
     const maxTries = options.maxRetries || this.maxRetries;
     const baseDelay = options.baseDelay || this.baseDelay;
     const maxDelay = options.maxDelay || this.maxDelay;
-    const lastError = null;
 
     while (true) {
       try {

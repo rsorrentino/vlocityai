@@ -247,8 +247,6 @@ class VlocityErrorHandler {
    * Handle "Were Not Processed" errors
    */
   async handleWereNotProcessed(error, context) {
-    const message = error.message || String(error);
-    
     return 'Some records were not processed. This may be due to missing dependencies or configuration mismatches. Re-run "packUpdateSettings" and retry deployment.';
   }
 

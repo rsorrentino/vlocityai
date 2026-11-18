@@ -2,7 +2,6 @@ const { spawnSafe: spawn } = require('../utils/processRunner');
 const { OrgAnalysis } = require('../models');
 const cacheService = require('./cacheService');
 const logger = require('../utils/logger');
-const { ValidationError, NotFoundError } = require('../middleware/errorHandler');
 
 class OrgAnalysisService {
   constructor() {

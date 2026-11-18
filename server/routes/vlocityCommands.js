@@ -3,8 +3,6 @@ const router = express.Router();
 const getVlocityCommandsService = require('../services/vlocityCommandsService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-const path = require('path');
-const fs = require('fs-extra');
 const jobMonitor = require('../services/jobMonitor');
 const jobHistoryService = require('../services/jobHistoryService');
 

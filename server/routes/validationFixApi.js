@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
-const validationService = require('../services/validationService');
 const salesforceService = require('../services/salesforceService');
 const vlocityCommandsService = require('../services/vlocityCommandsService');
 const logger = require('../utils/logger');
@@ -101,7 +100,7 @@ const logger = require('../utils/logger');
  * @access Private
  */
 router.post('/extract-error-values', asyncHandler(async (req, res) => {
-  const { error, orgUsername, orgType } = req.body;
+  const { error, orgUsername } = req.body;
   
   if (!error || !orgUsername) {
     throw new ValidationError('Error and orgUsername are required');
@@ -546,7 +545,7 @@ router.post('/manual-fix', asyncHandler(async (req, res) => {
     let result = null;
 
     switch (fix.action) {
-      case 'create_related_record':
+      case 'create_related_record': {
         // Create record with user-provided values
         const objectType = values.objectType || 'Product2';
         const recordData = {
@@ -568,6 +567,7 @@ router.post('/manual-fix', asyncHandler(async (req, res) => {
           record: createResult
         };
         break;
+      }
 
       case 'update_field_mapping':
         // Update query/configuration with new field name
@@ -583,7 +583,7 @@ router.post('/manual-fix', asyncHandler(async (req, res) => {
       case 'update_record':
         // Update existing record
         if (error.extractedValues?.existingId) {
-          const updateResult = await salesforceService.updateRecord(
+          await salesforceService.updateRecord(
             error.extractedValues.existingId,
             values,
             orgUsername

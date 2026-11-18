@@ -4,7 +4,6 @@
  */
 
 const fs = require('fs').promises;
-const path = require('path');
 const { runCommand } = require('../utils/processRunner');
 
 // Shell-free replacement for promisified child_process.exec.

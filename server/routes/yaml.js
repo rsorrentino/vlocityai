@@ -3,7 +3,6 @@ const router = express.Router();
 const yamlConfigService = require('../services/yamlConfigService');
 const configValidator = require('../services/configValidator');
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
-const logger = require('../utils/logger');
 
 /**
  * @swagger

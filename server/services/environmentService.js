@@ -1,7 +1,6 @@
 const fs = require('fs-extra');
 const path = require('path');
 const logger = require('../utils/logger');
-const propertiesReader = require('../utils/propertiesReader');
 
 /**
  * Service for managing environment-based configuration

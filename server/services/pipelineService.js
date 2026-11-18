@@ -5,8 +5,6 @@ const notificationService = require('./notificationService');
 // In-memory pipeline store (replace with DB model in future)
 const _pipelines = new Map();
 
-const VALID_STATUSES = ['idle', 'running', 'paused_awaiting_approval', 'completed', 'failed', 'aborted'];
-
 class PipelineService {
   /**
    * Create a new pipeline definition.

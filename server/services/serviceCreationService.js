@@ -1,7 +1,6 @@
 'use strict';
 
 const fs = require('fs-extra');
-const path = require('path');
 const { parse } = require('csv-parse/sync');
 const axios = require('axios');
 const sfdxAuthService = require('./sfdxAuthService');

@@ -1,39 +1,48 @@
-import React, { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { Box, Container, useMediaQuery, useTheme } from '@mui/material';
+import { Box, CircularProgress, Container, useMediaQuery, useTheme } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './pages/LoginPage';
-import Dashboard from './pages/Dashboard';
-import ExportJobs from './pages/ExportJobs';
-import DeployJobs from './pages/DeployJobs';
-import OrgManagement from './pages/OrgManagement';
-// VlocityManagement merged into ValidationDashboard
-import JobHistory from './pages/JobHistory';
-import Settings from './pages/Settings';
-import UserManagement from './pages/UserManagement';
-import AuditLogs from './pages/AuditLogs';
-import YamlConfigManager from './pages/YamlConfigManager';
-import RealTimeJobMonitor from './pages/RealTimeJobMonitor';
-import JobDetails from './pages/JobDetails';
-import ConfigTester from './pages/ConfigTester';
-import CatalogManager from './pages/CatalogManager';
-import CatalogRecordPage from './pages/CatalogRecordPage';
-import SfdmuPage from './pages/SfdmuPage';
-import SfdmuConfigPage from './pages/SfdmuConfigPage';
-import VlocityCommands from './pages/VlocityCommands';
-import ValidationDashboard from './pages/ValidationDashboard';
-import JobReport from './pages/JobReport';
-import EnvComparisonPage from './pages/EnvComparisonPage';
-import ExportHealthPage from './pages/ExportHealthPage';
-import DeploymentPipeline from './pages/DeploymentPipeline';
-import PipelineDetails from './pages/PipelineDetails';
-import ServiceCreationPage from './pages/ServiceCreationPage';
-import ChatPage from './pages/ChatPage';
 import ScrollToTop from './components/ScrollToTop';
+
+// Each page is its own chunk, loaded on first visit.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const ExportJobs = lazy(() => import('./pages/ExportJobs'));
+const DeployJobs = lazy(() => import('./pages/DeployJobs'));
+const OrgManagement = lazy(() => import('./pages/OrgManagement'));
+const JobHistory = lazy(() => import('./pages/JobHistory'));
+const Settings = lazy(() => import('./pages/Settings'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const YamlConfigManager = lazy(() => import('./pages/YamlConfigManager'));
+const RealTimeJobMonitor = lazy(() => import('./pages/RealTimeJobMonitor'));
+const JobDetails = lazy(() => import('./pages/JobDetails'));
+const ConfigTester = lazy(() => import('./pages/ConfigTester'));
+const CatalogManager = lazy(() => import('./pages/CatalogManager'));
+const CatalogRecordPage = lazy(() => import('./pages/CatalogRecordPage'));
+const SfdmuPage = lazy(() => import('./pages/SfdmuPage'));
+const SfdmuConfigPage = lazy(() => import('./pages/SfdmuConfigPage'));
+const VlocityCommands = lazy(() => import('./pages/VlocityCommands'));
+const ValidationDashboard = lazy(() => import('./pages/ValidationDashboard'));
+const JobReport = lazy(() => import('./pages/JobReport'));
+const EnvComparisonPage = lazy(() => import('./pages/EnvComparisonPage'));
+const ExportHealthPage = lazy(() => import('./pages/ExportHealthPage'));
+const DeploymentPipeline = lazy(() => import('./pages/DeploymentPipeline'));
+const PipelineDetails = lazy(() => import('./pages/PipelineDetails'));
+const ServiceCreationPage = lazy(() => import('./pages/ServiceCreationPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+
+function PageLoading() {
+  return (
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="40vh">
+      <CircularProgress size={32} />
+    </Box>
+  );
+}
 
 const SIDEBAR_EXPANDED_STORAGE_KEY = 'vlocity-sidebar-expanded';
 
@@ -170,6 +179,7 @@ function AppContent() {
             <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3, md: 4 }, height: '100%' }}>
               <ErrorBoundary>
                 <ScrollToTop />
+                <Suspense fallback={<PageLoading />}>
                 <Routes>
                   <Route path="/login" element={<Navigate to="/" replace />} />
                   <Route path="/" element={
@@ -307,6 +317,7 @@ function AppContent() {
                     </ProtectedRoute>
                   } />
                 </Routes>
+                </Suspense>
               </ErrorBoundary>
             </Container>
           </Box>

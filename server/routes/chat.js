@@ -146,6 +146,31 @@ router.get('/copilot/models', asyncHandler(async (req, res) => {
   }
 }));
 
+// ── AI-proposed changes (need explicit confirmation) ──────────────────────────
+
+router.post('/actions/:id/approve', asyncHandler(async (req, res) => {
+  const action = await chatService.decideAction({ actionId: req.params.id, user: req.user, approve: true });
+  res.json({ action });
+}));
+
+router.post('/actions/:id/reject', asyncHandler(async (req, res) => {
+  const action = await chatService.decideAction({ actionId: req.params.id, user: req.user, approve: false });
+  res.json({ action });
+}));
+
+// ── Usage & estimated cost ───────────────────────────────────────────────────
+
+router.get('/usage', asyncHandler(async (req, res) => {
+  const days = Math.max(1, Math.min(parseInt(req.query.days, 10) || 30, 366));
+  const everyone = req.query.scope === 'all';
+  if (everyone && req.user?.role !== 'admin') {
+    const { ForbiddenError } = require('../middleware/errorHandler');
+    throw new ForbiddenError('Only administrators can see everyone’s usage');
+  }
+  const usage = await chatService.getUsage({ userId: everyone ? undefined : req.userId, days });
+  res.json({ ...usage, scope: everyone ? 'all' : 'me' });
+}));
+
 // ── Message (SSE streaming) ───────────────────────────────────────────────────
 
 router.post('/message', async (req, res) => {
@@ -164,6 +189,7 @@ router.post('/message', async (req, res) => {
       conversationId,
       userMessage: message.trim(),
       userId: req.userId,
+      user: req.user,
       adapter,
       adapterConfig,
       orgUsername,

@@ -1,17 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const vlocityService = require('../services/vlocityService');
-const vlocityDataPackService = require('../services/vlocityDataPackService');
 const salesforceService = require('../services/salesforceService');
-const { asyncHandler, NotFoundError, ValidationError } = require('../middleware/errorHandler');
-const { validate, schemas } = require('../utils/configValidator');
+const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
-const PropertiesReader = require('../utils/propertiesReader');
-const path = require('path');
-
-// Load properties from environments.properties file
-const propertiesPath = path.join(__dirname, '../../environments.properties');
-const properties = new PropertiesReader(propertiesPath);
 
 /**
  * @route GET /api/vlocity/metadata-types
@@ -427,15 +418,12 @@ async function getOrgInfo(username) {
       });
 
       let stdout = '';
-      let stderr = '';
 
       child.stdout.on('data', (data) => {
         stdout += data.toString();
       });
 
-      child.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+      child.stderr.resume(); // output not used, but the pipe must be drained
 
       child.on('close', (code) => {
         if (code === 0) {

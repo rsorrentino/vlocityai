@@ -40,7 +40,6 @@ class DataPackChunkService {
       
       // Process chunks in parallel (with limit to avoid overwhelming API)
       const concurrency = 5;
-      const chunkPromises = [];
       
       for (let i = 0; i < chunks.length; i += concurrency) {
         const chunkBatch = chunks.slice(i, i + concurrency);

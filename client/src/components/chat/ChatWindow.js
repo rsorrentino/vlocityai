@@ -20,9 +20,12 @@ import {
   Send as SendIcon,
   StopCircle as StopIcon,
   AutoAwesome as AutoAwesomeIcon,
+  QueryStats as UsageIcon,
 } from '@mui/icons-material';
 import axios from 'axios';
 import ChatMessage from './ChatMessage';
+import ActionCard from './ActionCard';
+import UsageDialog from './UsageDialog';
 import AdapterSettings from './AdapterSettings';
 import { useAdapterConfig, getAdapterApiKey, ADAPTERS } from './AdapterSettings';
 
@@ -38,6 +41,8 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [streaming, setStreaming] = useState(false);
+  const [actions, setActions] = useState([]);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' });
   const [adapterConfig, setAdapterConfig] = useAdapterConfig();
   const bottomRef = useRef(null);
@@ -48,12 +53,22 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
   const currentAdapterLabel = (ADAPTERS.find(a => a.value === (adapterConfig.adapter || 'anthropic')) || ADAPTERS[0]).short;
 
   // Load messages when conversation changes
-  useEffect(() => {
-    if (!conversationId) { setMessages([]); return; }
+  const loadConversation = useCallback(() => {
+    if (!conversationId) { setMessages([]); setActions([]); return; }
     axios.get(`/api/chat/conversations/${conversationId}`)
-      .then(r => setMessages(r.data.conversation.messages || []))
-      .catch(() => setMessages([]));
+      .then(r => {
+        setMessages(r.data.conversation.messages || []);
+        setActions(r.data.conversation.actions || []);
+      })
+      .catch(() => { setMessages([]); setActions([]); });
   }, [conversationId]);
+
+  useEffect(() => { loadConversation(); }, [loadConversation]);
+
+  const handleActionDecided = useCallback((updated) => {
+    setActions(prev => prev.map(a => (a.id === updated.id ? updated : a)));
+    loadConversation();
+  }, [loadConversation]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
@@ -158,9 +173,11 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
               );
               return { ...m, toolEvents };
             }));
+          } else if (event.type === 'confirmation_required') {
+            setActions(prev => [...prev, event.action]);
           } else if (event.type === 'done') {
             setMessages(prev => prev.map(m =>
-              m.streaming ? { ...m, streaming: false, id: event.messageId } : m
+              m.streaming ? { ...m, streaming: false, id: event.messageId, usage: event.usage } : m
             ));
             if (onFirstMessage && messages.length === 0) onFirstMessage();
           } else if (event.type === 'error') {
@@ -238,6 +255,11 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
             New chat
           </Button>
 
+          <Tooltip title="AI usage and estimated cost">
+            <IconButton size="small" onClick={() => setUsageOpen(true)}>
+              <UsageIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
           <AdapterSettings orgs={orgs} config={adapterConfig} onConfigChange={setAdapterConfig} />
         </Box>
 
@@ -313,8 +335,12 @@ export default function ChatWindow({ conversation, onFirstMessage, orgs, onCreat
             onReuse={(content) => setInput(content)}
           />
         ))}
+        {actions.map((action) => (
+          <ActionCard key={action.id} action={action} onDecided={handleActionDecided} />
+        ))}
         <div ref={bottomRef} />
       </Box>
+      <UsageDialog open={usageOpen} onClose={() => setUsageOpen(false)} />
 
       {/* Input bar */}
       <Box sx={{ px: { xs: 1.5, sm: 2 }, py: 1.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0, bgcolor: 'background.default' }}>

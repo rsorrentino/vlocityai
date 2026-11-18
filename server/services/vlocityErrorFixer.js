@@ -84,7 +84,7 @@ class VlocityErrorFixer {
     let fixCounter = 10000; // Start from a high number to avoid conflicts
 
     // Generate fixes for duplicate records (keep first one, fix the rest)
-    for (const [key, records] of Object.entries(duplicatesByField)) {
+    for (const records of Object.values(duplicatesByField)) {
       if (records.length > 1) {
         // Multiple records with same value - need to fix all but one
         for (let i = 1; i < records.length; i++) {

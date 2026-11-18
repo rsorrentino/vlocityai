@@ -46,13 +46,11 @@ const systemStatusService = require('./services/systemStatusService');
 // Enterprise Services
 const getEnterpriseMonitoringService = require('./services/enterpriseMonitoringService');
 const getAuditService = require('./services/auditService');
-const getCircuitBreakerService = require('./services/circuitBreakerService');
 const getEnterpriseJobQueueService = require('./services/enterpriseJobQueueService');
 
 // Get service instances
 const enterpriseMonitoringService = getEnterpriseMonitoringService();
 const auditService = getAuditService();
-const circuitBreakerService = getCircuitBreakerService();
 const enterpriseJobQueueService = getEnterpriseJobQueueService();
 
 // Enterprise Middleware
@@ -62,7 +60,6 @@ const {
   performanceMonitoringMiddleware,
   requestIdMiddleware,
   correlationIdMiddleware,
-  userRateLimitMiddleware,
 } = require('./middleware/enterpriseMiddleware');
 
 // Import routes
@@ -89,7 +86,6 @@ const vlocityPricingApiRoutes = require('./routes/vlocityPricingApi');
 const vlocityPromotionsApiRoutes = require('./routes/vlocityPromotionsApi');
 const enhancedVlocityPricingApiRoutes = require('./routes/enhancedVlocityPricingApi');
 const validationApiRoutes = require('./routes/validationApi');
-const validationFixApiRoutes = require('./routes/validationFixApi');
 const exportDataRoutes = require('./routes/exportData');
 const auditApiRoutes = require('./routes/auditApi');
 const backupRestoreRoutes = require('./routes/backupRestore');
@@ -103,6 +99,7 @@ const notificationRoutes = require('./routes/notifications');
 const pipelineRoutes = require('./routes/pipelines');
 const serviceCreationRoutes = require('./routes/serviceCreation');
 const chatRoutes = require('./routes/chat');
+const orgAuthRoutes = require('./routes/orgAuth');
 
 const app = express();
 let servicesReady = process.env.NODE_ENV === 'test';
@@ -310,6 +307,12 @@ app.use('/api', (req, res, next) => {
 
 app.use('/api', requireApiAuth);
 
+// Role-based access control for every /api route (see middleware/accessPolicy.js)
+const { authorizeRequest } = require('./middleware/accessPolicy');
+app.use('/api', authorizeRequest({
+  isPublic: (req) => PUBLIC_API_ROUTES.has(`${req.method} ${(req.baseUrl + req.path).replace(/\/+$/, '') || '/'}`),
+}));
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/orgs', orgRoutes);
@@ -347,6 +350,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/pipelines', pipelineRoutes);
 app.use('/api/service-creation', serviceCreationRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/org-auth', orgAuthRoutes);
 
 // Sentry error handler (must be before other error middleware)
 if (process.env.SENTRY_DSN) {
@@ -397,7 +401,7 @@ if (process.env.NODE_ENV === 'production') {
 } else {
   const frontendPort = parseInt(process.env.CLIENT_PORT, 10);
 
-  // If CLIENT_PORT is provided (dev-full mode), frontend should be served by react-scripts.
+  // If CLIENT_PORT is provided (dev-full mode), frontend is served by the Vite dev server.
   // Otherwise, keep legacy behavior and serve client/build from backend in development.
   if (!Number.isNaN(frontendPort)) {
     app.get('*', (req, res, next) => {

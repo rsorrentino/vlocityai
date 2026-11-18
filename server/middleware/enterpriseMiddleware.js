@@ -129,7 +129,7 @@ function auditMiddleware(req, res, next) {
 function circuitBreakerMiddleware(serviceName, config = {}) {
   return async (req, res, next) => {
     try {
-      const circuit = circuitBreakerService.getCircuit(serviceName, config);
+      circuitBreakerService.getCircuit(serviceName, config); // registers the circuit with this config
 
       // Execute request through circuit breaker
       await circuitBreakerService.execute(

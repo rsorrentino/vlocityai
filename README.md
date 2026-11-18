@@ -79,6 +79,26 @@ Requirements and notes:
 | `list_price_lists` | `vlocity_cmt__PriceList__c` | "list all price lists" |
 | `get_product_attributes` | `vlocity_cmt__AttributeAssignment__c` | "what attributes does product X have?" |
 | `run_soql` | any object (SELECT only) | any custom question |
+| `propose_record_update` | catalog / pricing objects | "rename product X to Y" (needs your approval, see below) |
+
+#### Changes proposed by the AI need your approval
+
+Developers and admins can ask the assistant to change a record ("set the price of X to 9.90", "rename product Y"). The assistant never writes on its own: it **proposes** the change, and the chat shows a card with the record, the current values and the proposed values. Nothing is sent to Salesforce until the user who asked clicks **Approve and apply**; **Reject** discards it. Each proposal can be applied once.
+
+- Only these objects can be changed: `Product2` and the Vlocity catalog, pricing, promotion and attribute objects (plus the `GT_*` SKU / rate code / rate table objects). Override the list with `AI_WRITE_ALLOWED_OBJECTS=Product2,vlocity_cmt__PriceListEntry__c,…`. Users, profiles, permission sets and other security objects are always refused, as are system and ownership fields.
+- Functional users never get the write tool. Turn the feature off for everyone with `AI_WRITE_ACTIONS=false`.
+- Updates use the Salesforce REST API (`SF_API_VERSION`, default `62.0`) with the org's existing `sf` CLI sign-in.
+- Proposals, approvals, rejections, every tool call and every answer are written to the audit log (`ai_write_proposed`, `ai_write_approved`, `ai_write_rejected`, `ai_tool_call`, `ai_chat_message`, `ai_chat_error`).
+
+#### Usage and cost
+
+Every answer shows its input/output tokens and an estimated cost; the 📊 button in the chat bar opens a usage summary by adapter and model (admins can switch to *All users*). Estimates use list prices per million tokens for Claude models; GitHub Copilot is shown as *Copilot plan* and Ollama as free. To add or change prices, put a JSON file at `data/ai-pricing.json` (or point `AI_PRICING_FILE` at one):
+
+```json
+{ "gpt-4.1": { "input": 2, "output": 8 }, "claude-opus-5-5": { "input": 4, "output": 20 } }
+```
+
+Expired Copilot session tokens are refreshed and the request retried automatically. The default Claude model is `claude-opus-5-5`; change it with `DEFAULT_ANTHROPIC_MODEL`.
 
 #### UI layout
 
@@ -1072,7 +1092,7 @@ The system status panel now checks:
 - **AI API Key** — required for the Chat feature. One of:
   - `ANTHROPIC_API_KEY` for Claude
   - `OPENAI_API_KEY` for GPT-4o
-  - `GITHUB_TOKEN` for GitHub Copilot
+  - a GitHub Copilot subscription (*Sign in with GitHub* in the chat settings), or `GITHUB_MODELS_TOKEN` for GitHub Models
   - [Ollama](https://ollama.com) running locally (no key needed)
 - **SFDMU Plugin** — required only for the Data Migration page:
   ```bash
@@ -1134,16 +1154,18 @@ npm run check-cli-tools          # Show which CLI tools are installed
 npm start                        # Start production server
 npm run dev                      # Start development server
 npm run dev-full                 # Start both backend and frontend
-npm run build                    # Build React frontend
+npm run build                    # Build the React client (Vite, output in client/build)
 
 # Testing
 npm test                         # Run all tests with coverage
 npm run test:unit                # Unit tests
 npm run test:integration         # Integration tests (real app, in-memory SQLite)
 node scripts/smoke-test.js       # Start the server and check health/auth/login
+npm --prefix client test         # Client tests (Vitest)
 
 # Code Quality
-npm run lint                     # Run ESLint
+npm run lint                     # Run ESLint (server)
+npm --prefix client run lint     # Run ESLint (client, 0 warnings allowed)
 npm run format                   # Format code with Prettier
 
 # Database
@@ -1237,8 +1259,9 @@ Only an initial administrator is created (see *Quick Start*). Older versions shi
 
 ```bash
 npm run dev-full
-# Frontend: http://localhost:3001
-# Backend API: http://localhost:3000/api
+# Frontend (Vite dev server): http://localhost:3000
+# Backend API: http://localhost:3001/api
+# Ports move to the next free one if taken; /api and /ws/jobs are proxied to the backend.
 ```
 
 ### **Production Mode**
@@ -1246,7 +1269,7 @@ npm run dev-full
 ```bash
 npm run build
 npm start
-# Application: http://localhost:3000
+# Application: http://localhost:3001 (or PORT)
 ```
 
 ### **Docker Mode**

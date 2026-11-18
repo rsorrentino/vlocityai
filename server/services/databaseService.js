@@ -26,7 +26,7 @@ class DatabaseService {
     this.usingSQLiteFallback = false;
   }
 
-  async connect() {
+  async connect({ skipMigrations = false } = {}) {
     try {
       // Use PostgreSQL if DATABASE_URL is provided, otherwise use SQLite directly
       const databaseUrl = process.env.DATABASE_URL || 
@@ -76,7 +76,7 @@ class DatabaseService {
       }
       
       // Sync models (create tables if they don't exist)
-      await this.syncModels();
+      await this.syncModels({ skipMigrations });
       
       return this.sequelize;
     } catch (error) {
@@ -158,20 +158,20 @@ class DatabaseService {
     }
   }
 
-  async syncModels() {
+  /**
+   * Bind the models to the active connection and bring the schema up to date
+   * by running migrations (server/migrations). Replaces sequelize.sync(),
+   * which could create tables but never upgrade them.
+   */
+  async syncModels({ skipMigrations = false } = {}) {
     try {
       const models = require('../models');
+      const isSqlite = this.sequelize.getDialect() === 'sqlite';
 
-      // Rebind all Sequelize model classes to the active connection so that:
-      //   1. ORM queries (User.findOne, etc.) go through this connection.
-      //   2. sequelize.sync() knows which tables to create.
-      //
-      // Models are defined on a temporary connection in models/index.js at
-      // module-load time (before databaseService.connect() is called). The
-      // rebind below updates each model's sequelize reference and
-      // registers it with this instance's ModelManager, ensuring consistent
-      // behaviour regardless of whether we are using PostgreSQL or the SQLite
-      // fallback.
+      // Models are defined at module-load time on a temporary connection (see
+      // models/index.js). Rebind them to the active instance. On SQLite drop
+      // the PostgreSQL schema so tables use plain names (older fallback
+      // databases used "schema.table" names; a migration renames them).
       const modelClasses = [
         models.User,
         models.Job,
@@ -180,32 +180,31 @@ class DatabaseService {
         models.SystemStatus,
         models.SfdmuConfig,
       ];
-
       for (const model of modelClasses) {
-        if (model && model.sequelize !== this.sequelize) {
-          // Rebind the model to the active Sequelize instance.
-          // In Sequelize 6 the sequelize reference is stored as a plain writable
-          // own property (`model.sequelize`), NOT as `model._sequelize`.
-          // We update it directly here because there is no public API to rebind
-          // an already-defined model to a different Sequelize instance.
+        if (!model) continue;
+        if (isSqlite) {
+          model._schema = undefined;
+          model.options.schema = undefined;
+        }
+        if (model.sequelize !== this.sequelize) {
+          // Sequelize 6 keeps the instance as a plain writable property
           model.sequelize = this.sequelize;
           this.sequelize.modelManager.addModel(model);
         }
       }
-
-      // Keep the exported sequelize reference in sync so callers that
-      // destructure it (e.g. `const { sequelize } = require('../models')`)
-      // after this point receive the active instance.
       models.sequelize = this.sequelize;
 
-      // Sync all models — creates missing tables without altering or dropping
-      // existing ones.  This is particularly important for the SQLite fallback
-      // where no prior migrations have been run.
-      await this.sequelize.sync({ alter: false });
-
-      logger.info('✅ Database models synchronized');
+      if (!skipMigrations) {
+        const { runMigrations } = require('../db/migrator');
+        const applied = await runMigrations(this.sequelize, { logger });
+        if (applied.length) {
+          logger.info(`✅ Applied ${applied.length} database migration(s): ${applied.join(', ')}`);
+        } else {
+          logger.info('✅ Database schema is up to date');
+        }
+      }
     } catch (error) {
-      logger.logError(error, { operation: 'Model synchronization' });
+      logger.logError(error, { operation: 'Database migration' });
       throw error;
     }
   }

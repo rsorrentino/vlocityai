@@ -1,6 +1,6 @@
 /**
  * ESLint configuration for the Node.js server and scripts.
- * The React client is linted by react-scripts (eslint-config-react-app).
+ * The React client has its own config (client/.eslintrc.cjs, `npm --prefix client run lint`).
  */
 module.exports = {
   root: true,

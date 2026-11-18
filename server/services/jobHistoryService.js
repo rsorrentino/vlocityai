@@ -1,7 +1,7 @@
 const { Job } = require('../models');
 const jobMonitor = require('./jobMonitor');
 const logger = require('../utils/logger');
-const { ValidationError, NotFoundError } = require('../middleware/errorHandler');
+const { NotFoundError } = require('../middleware/errorHandler');
 const crypto = require('crypto');
 
 class JobHistoryService {

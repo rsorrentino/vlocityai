@@ -1,5 +1,4 @@
 const express = require('express');
-const path = require('path');
 const router = express.Router();
 const { asyncHandler, ValidationError } = require('../middleware/errorHandler');
 const { authenticate } = require('../middleware/auth');
@@ -368,8 +367,6 @@ router.post('/sync', authenticate, asyncHandler(async (req, res) => {
   const projectPath = `./export/env-sync-${timestamp}`;
 
   // Split records: GT_ custom objects sync via direct API; Vlocity objects go through CLI pipeline
-  const OBJECT_DEFINITIONS = require('../services/envComparisonService').getObjectDefinitions
-    ? null : null; // accessed via service below
   const directApiRecords  = selectedRecords.filter(r => {
     const defs = envComparisonService.getObjectDefinitions();
     const def = defs.find(d => d.objectType === r.objectType);

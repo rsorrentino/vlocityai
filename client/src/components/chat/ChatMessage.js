@@ -68,6 +68,28 @@ function formatTimestamp(value) {
   });
 }
 
+const numberFormat = new Intl.NumberFormat();
+
+/** "1,234 in / 56 out tokens • $0.0123" for assistant answers that have usage. */
+function usageLabel(message) {
+  const usage = message.usage || {
+    inputTokens: message.input_tokens,
+    outputTokens: message.output_tokens,
+    adapter: message.adapter,
+    costUsd: message.cost_usd === null || message.cost_usd === undefined ? null : Number(message.cost_usd),
+  };
+  if (!usage.adapter && !usage.inputTokens && !usage.outputTokens) return '';
+  const parts = [];
+  if (usage.inputTokens || usage.outputTokens) {
+    parts.push(`${numberFormat.format(usage.inputTokens || 0)} in / ${numberFormat.format(usage.outputTokens || 0)} out tokens`);
+  }
+  if (usage.adapter === 'copilot') parts.push('Copilot plan');
+  else if (usage.costUsd !== null && usage.costUsd !== undefined) {
+    parts.push(usage.costUsd < 0.01 ? `$${usage.costUsd.toFixed(4)}` : `$${usage.costUsd.toFixed(2)}`);
+  }
+  return parts.join(' • ');
+}
+
 export default function ChatMessage({ message, onCopy, onReuse }) {
   const isUser = message.role === 'user';
   const timestamp = formatTimestamp(message.created_at);
@@ -112,6 +134,7 @@ export default function ChatMessage({ message, onCopy, onReuse }) {
         >
           <Typography variant="caption" color="text.secondary">
             {isUser ? 'You' : 'Assistant'}{timestamp ? ` • ${timestamp}` : ''}
+            {!isUser && usageLabel(message) ? ` • ${usageLabel(message)}` : ''}
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 0.25 }}>

@@ -28,10 +28,9 @@ class DataPackFileFixer {
       }
 
       // Check if it's valid JSON
-      let parsed;
       let originalParseError = null;
       try {
-        parsed = JSON.parse(trimmed);
+        JSON.parse(trimmed);
         // File is valid, no fix needed
         return false;
       } catch (parseError) {

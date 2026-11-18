@@ -195,7 +195,7 @@ class CircuitBreakerService {
    */
   getAllCircuitStates() {
     const states = {};
-    for (const [name, circuit] of this.circuits.entries()) {
+    for (const name of this.circuits.keys()) {
       states[name] = this.getCircuitState(name);
     }
     return states;

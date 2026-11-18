@@ -19,6 +19,11 @@ const errorHandler = (err, req, res, next) => {
   } else if (err.name === 'NotFoundError') {
     statusCode = 404;
     message = 'Not Found';
+  }
+  // The app's own errors (ValidationError('username is required') etc.) carry
+  // a message written for the user: pass it on instead of the generic label.
+  if (err.isOperational && err.message && statusCode < 500) {
+    message = err.message;
   } else if (err.code === 'ENOENT') {
     statusCode = 404;
     message = 'File or directory not found';
