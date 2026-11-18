@@ -43,11 +43,25 @@ describe('Error Handler Middleware', () => {
   });
 
   describe('errorHandler', () => {
-    it('maps ValidationError to 400', () => {
-      errorHandler(new ValidationError('Invalid input'), mockReq, mockRes, mockNext);
+    it('maps ValidationError to 400 and keeps its message for the user', () => {
+      errorHandler(new ValidationError('username is required'), mockReq, mockRes, mockNext);
       expect(mockRes.status).toHaveBeenCalledWith(400);
       const body = mockRes.json.mock.calls[0][0];
-      expect(body.error).toMatchObject({ message: 'Validation Error', statusCode: 400, path: '/api/test', method: 'GET' });
+      expect(body.error).toMatchObject({ message: 'username is required', statusCode: 400, path: '/api/test', method: 'GET' });
+    });
+
+    it('uses the generic label for third-party errors named ValidationError', () => {
+      const err = new Error('column "x" violates constraint on table secret_table');
+      err.name = 'ValidationError';
+      errorHandler(err, mockReq, mockRes, mockNext);
+      expect(mockRes.json.mock.calls[0][0].error.message).toBe('Validation Error');
+    });
+
+    it('does not reveal file paths of file-system errors', () => {
+      const err = new Error("ENOENT: no such file or directory, open '/srv/app/secret.yaml'");
+      err.code = 'ENOENT';
+      errorHandler(err, mockReq, mockRes, mockNext);
+      expect(mockRes.json.mock.calls[0][0].error).toMatchObject({ statusCode: 404, message: 'File or directory not found' });
     });
 
     it('maps UnauthorizedError to 401', () => {
@@ -57,8 +71,9 @@ describe('Error Handler Middleware', () => {
     });
 
     it('maps NotFoundError to 404', () => {
-      errorHandler(new NotFoundError('Resource not found'), mockReq, mockRes, mockNext);
+      errorHandler(new NotFoundError('Job 42 not found'), mockReq, mockRes, mockNext);
       expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json.mock.calls[0][0].error.message).toBe('Job 42 not found');
     });
 
     it('returns 500 for generic errors', () => {

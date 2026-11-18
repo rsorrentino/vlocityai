@@ -707,7 +707,7 @@ router.delete('/product-child-items/:id', asyncHandler(async (req, res) => {
  */
 router.get('/instance-url', asyncHandler(async (req, res) => {
   const username = requireUsername(req.query);
-  const salesforceService = require('../services/salesforceService');
+  const salesforceService = require('../../services/salesforceService');
   await salesforceService.authenticateWithSfdx(username);
   res.json({ success: true, instanceUrl: salesforceService.instanceUrl || null });
 }));
