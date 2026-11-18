@@ -1063,6 +1063,7 @@ const options = {
   },
   apis: [
     require('path').join(__dirname, '../routes/*.js'), // Path to the API routes
+    require('path').join(__dirname, '../routes/**/*.js'),
   ],
 };
 
